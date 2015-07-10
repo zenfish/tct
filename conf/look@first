@@ -1,0 +1,31 @@
+#
+#  These are dirs containing tools & files we want to investigate first,
+# so we stat/whatever them first, and then we can fuck with them without 
+# worrying about destroying forensic evidence.
+#
+#  We automatically go through the $PATH variable of the user running
+# the program, so mostly this is for config and log dirs (/etc, /var/log,
+# etc.)
+#
+#
+#  The current dir is automatically looked at first
+#
+#  Then in order, the dirs in this file
+#
+# Everything should be prepended with $CORPSE so that the -c option
+# will work - it gets ignored if the -c option isn't there, so "/bin"
+# is the same as "$CORPSE/bin", unless the -c is used in the grave-robber
+#
+
+/etc
+/bin
+/sbin
+/dev
+
+# /sbin/bin
+# /usr/bin
+# /usr/ucb
+# /usr/local/bin
+# /var/adm
+# /var/log
+

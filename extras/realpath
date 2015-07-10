@@ -1,0 +1,24 @@
+#!/usr/bin/perl5
+
+#
+#  Prints out the real pathname of file(s); usage:
+#
+#		$0 file[s]
+#
+#  Prints out warning to stderr if file doesn't exist.
+#
+#
+
+$running_under_grave_robber = 1;
+
+$TCT_HOME = "";
+require "$TCT_HOME/conf/coroner.cf";
+require "realpath.pl";
+
+for (@ARGV) {
+	$path = &realpath($_);
+	if ($path) { print $path, "\n"; }
+	else       { warn "File $_ doesn't exist\n"; }
+	}
+
+1;

@@ -1,0 +1,62 @@
+.TH ICAT 1 
+.ad
+.fi
+.SH NAME
+icat
+\-
+copy files by inode number
+.SH SYNOPSIS
+.na
+.nf
+.ad
+.fi
+\fBicat\fR [\fB-hHvV\fR] [\fB-f \fIfstype\fR]
+\fIdevice\fR \fIinode\fR ...
+.SH DESCRIPTION
+.ad
+.fi
+\fBicat\fR opens the named \fIdevice\fR and copies the files
+with the specified \fIinode\fR numbers to standard output.
+
+Arguments:
+.IP "\fB-f \fIfstype\fR"
+Specifies the file system type. The default file system type
+is system dependent. With most UNIX systems the default type
+is \fBufs\fR (Berkeley fast file system). With Linux the default
+type is \fBext2fs\fR (second extended file system).
+.IP \fB-h\fR
+Skip over holes in files, so that absolute address information
+is lost. This option saves space when copying sparse files.
+.IP "\fB-H\fR (default)"
+Copy holes in files as null blocks, so that absolute address
+information is preserved. This option wastes space when copying
+sparse files.
+.IP \fB-v\fR
+Enable verbose mode, output to stderr.
+.IP \fB-V\fR
+Enable verbose mode, output to stdout.
+.IP \fIdevice\fR
+Disk special file, or regular file containing a disk image.
+On UNIX systems, raw mode disk access may give better performance
+than block mode disk access.  LINUX disk device drivers support
+only block mode disk access.
+.IP \fIinode\fR
+Inode number. \fBicat\fR concatenates the contents of all specified
+files.
+.SH BUGS
+.ad
+.fi
+\fBicat\fR should support more file system types. Right now, support
+is limited to \fBext2fs\fR when built on Linux, and \fBufs\fR when
+built on Solaris and BSD systems.
+.SH LICENSE
+.na
+.nf
+This software is distributed under the IBM Public License.
+.SH AUTHOR(S)
+.na
+.nf
+Wietse Venema
+IBM T.J. Watson Research
+P.O. Box 704
+Yorktown Heights, NY 10598, USA

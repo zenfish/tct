@@ -1,0 +1,25 @@
+Problems & Potential Problems
+------------------------------
+
+It's best to have nothing running and do nothing except essentials (if
+	that) when you run the grave-robber, since it mucks with 
+	processes and stuff.  Save all files before starting it,
+	certainly ;-)  (However, if you're doing an investigation,
+	don't do anything that would destroy evidence!)
+
+Solaris - there seems to be a bug in the windowing system that can freeze
+	up the machine (in solaris 2.7, at least) when pcat captures a 
+	process.  Working on tracking this down.
+
+	Use "strings -a" on solaris, not simply "strings", when examining 
+	binary files.
+
+suck_proc, which uses pcat to grab all the processes on a system,
+	can freeze or kill off a system.  Use the -p flag or run pcat manually
+	on selected processes if this happens to you.
+
+If you have an automounter running, going to all the home dirs and
+	snarfing up .rhosts and .forward files could be very painful.  Not
+	a bug, but you might want to comment out "&grab_user_trust_files();"
+	and "&grab_user_time_trust();" from the grave-robber (near the end.)
+

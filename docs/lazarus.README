@@ -1,0 +1,344 @@
+
+Lazarus
+--------
+
+Lazarus is a program that attempts to resurrect deleted files or data
+from raw data - most often the unallocated portions of a Unix file
+system, but it can be used on any data, such as system memory, swap,
+etc.  It has two basic logical pieces - one that grabs input from a source
+and another that dissects, analyzes, and reports on its findings.
+
+It can be used for recovering lost data and files (accidently removed 
+by yourself or maliciously), as a tool for better understanding how
+a Unix system works, investigate/spy on system and user activity, etc.
+
+It is not for the faint of heart.  Unix systems are not like PC
+operating systems, and in addition, since this is a first generation
+tool, it is nowhere near as polished or professional as PC-based
+data recovery tools.  (At least, I'm pretty sure; I haven't really
+used many PC recovery tools.)  No special privileges are required
+to run the tool, although in most systems the most interesting data
+(raw disk devices, memory, swap, etc.) are readable only by root.
+
+While something like dd(1) may be used for supplying input, perhaps
+the most interesting thing to do is to utilize the unrm(1) (supplied 
+with TCT) program to obtain the currently unused space in a file system 
+to analyze information that has previously been allocated and then 
+released.
+
+Lazarus (not unrm) has been used with data from UFS, EXT2, NTFS,
+and FAT32 file systems, but it can be used on just about any type
+of file system - your success will vary with the way the data
+resides on the disk, but it always seems to find something.
+
+
+Analysis & Internal Workings
+-----------------------------
+
+The dissection and analysis side of Lazarus is a perl program which 
+takes the following steps:
+
+1)  Read in a chunk of data (typically 1K, but modifiable by changing
+the variable $BLOCK_SIZE in lazarus.cf).
+
+2)  Roughly determine what sort of data it is - text or binary, so that 
+	further analysis can be done.  This is currently done by examining
+	the first 10% of $BLOCK_SIZE - if they are all printable characters
+	then it's flagged as a text block, else it is flagged as binary
+	data.
+
+3-t)  If text, it checks the data against a set of regular expressions
+	to attempt to determine what it is.
+
+3-b)  If binary, the file(1) command is run over the chunk of data.  If
+	it doesn't succeed, the first few bytes are examined to see if it
+	appears to be in ELF format.  Due to the bugs and problems with
+	various versions of file we've ported the Free-BSD version to a
+	few Unix's and include it in this distribution.
+
+4)  If it is recognized, the block is marked as a block of that data type.
+	If it is a different type of block than the previous block then
+	it is saved to a new file.  If the data is the same type as the 
+	previous data block it is concatenated to it.  If the data block 
+	is not recognized after the initial text/binary recognition but 
+	follows a recognized chunk of text/binary data (respectively),
+	lazarus assumes that it is a continuation of the previous data 
+	and will also concatenated it to the previous data block.
+
+5)  The output is in two forms, the data blocks and a map that corresponds
+	to the blocks.  The blocks are saved in a separate directory (by
+	default, amazingly, "blocks") in a file that starts with the
+	logical block # that is currently being processed.  Each run 
+	of similar data, having all been saved to a single file, also has a 
+	name that corresponds to its data type ("c" == C source code, 
+	"h" == HTML, etc.)  Since data files might be viewed in a browser 
+	(more on that later) they all have an ending of ".txt" so that 
+	they will not be interpreted as potentially harmful code.  The 
+	naming convention is blocknumber.type.txt, or 
+	blocknumber.type.{jpg,gif,etc} if it is an image file, so, for
+	instance, a run of mail data might have the name 100.m.txt.
+
+	So searching all the blocks identified as C code to see if they 
+	contain a header file, for instance, is as easy as something like:
+
+		% grep -l header.h blocks/*.c.txt
+
+	The data map generated is an ASCII list of characters that 
+	corresponds to the various data types found.  The first character
+	that represents a "run" of blocks is capitalized, so that a
+	run of mail would show up as:
+
+		Mmmmm
+
+	To try to make the output stay within a semi-manageable size it does 
+	a logarithmic compression of the output (base 2) - e.g. the 
+	first character represents one block or less of data, the 2nd from 
+	0-2 blocks, the 3rd 0-4, the fourth 0-8, etc., so that the above
+	run of mail data (of 5 characters) would be 1+2+4+8 plus the last
+	block, which could be from 1-16 K, totally 16-31K of data.
+
+	This is all most colorful (readable?) if viewed with a browser; it 
+	outputs colored characters (and a map legend), and clicking on the
+	first character of a data block will display in a window with 
+	both a simple navigation bar and the data contained in the run.
+
+There is an alternate method of analysis which does byte-by-byte examination,
+rather than a block at a time; it is significantly slower (and lazarus is
+already very slow) but might be better suited for non-block based data
+(such as memory or unknown data fragments.)  It basically is the same -
+looks at $BLOCK_SIZE data sized chunks - but instead of looking at only
+the first 10% of the block it examines the whole thing looking for fragments.
+
+After the initial analysis you essentially have one of two choices -
+use the output/data map to examine the data or go straight to the 
+data blocks for further processing/searching.  
+
+
+Using Lazarus
+--------------
+
+Rare is the user who hasn't blown away data inadvertently; most break-ins
+involved at least small amounts of data destruction (if nothing else
+intruders will often carry around or install the tools that they use 
+to compromise systems); legitimate usage of a system - mail, WWW browsing,
+compiling programs, etc. leaves considerable amounts of deleted activity 
+on the disk, etc.  There are many reasons, some legitimate, some not,
+why a user might want to examine the system.
+
+For better or for worse, there are several significant obstacles to doing
+data recovery or analysis on a Unix file system (which will probably be
+the most significant usage of Lazarus.)  First and foremost, unlike PC's
+Mac's and other systems, most Unix file systems were designed for high 
+performance with no (or not much) thought to data recovery.  When a file
+is removed essentially all useful information about it - the filename,
+inode, etc. are either deleted or mostly rendered useless for data
+recovery.  
+
+So in order to do any sort of recovery you generally have to examine *ALL*
+the unused portions of the disk, which can take an enormous amount of time
+depending on how much free space you have (this is one case where you 
+don't want to have a big disk!)
+
+In addition, while (especially for smaller files) Unix generally attempts
+to write data in contiguous blocks, the larger the file the better the
+chance it has been broken up into pieces.  While it is possible to
+manually reconstruct data in such a situation, it will probably be very
+painful unless the format of the data is very regular and easy to 
+recognize, like mail, system log files, etc.
+
+Also, unless the disk is frozen (that is, immediately taken off-line),
+you run the risk of overwriting the data in question (and even if done
+immediately, kernel data buffers and the like could still be waiting to
+be sync'd.  As a note - on the good side of things we've found that data
+is very localized; reasonably sized files in a directory will usually
+have all their data in the immediate neighborhood of that directory, so
+unless you're writing to that same area you're probably OK.  Indeed,
+unless you really hammer the disk with writing, most stuff is probably
+going to be untouched, even long after the data has been deleted.
+
+
+All said, however, there are probably two main uses for such a tool -
+data recovery and (often post-mortem) analysis.
+
+
+Data Recovery
+--------------
+
+Hopefully you've only blown away a small easily recognized text file.
+This is probably not the case.  Regardless of what happened, you'll 
+want the following items:
+
+1)  A second system that can recognize the disk is optional, but desirable.
+
+2)  Another disk, or at least another file system on the same disk if you've
+	taking data from one file system and writing it to another.  This 
+	may sound foolish, but UNDER NO CIRCUMSTANCES SHOULD YOU RECOVER 
+	DATA ON THE SAME FILE SYSTEM IT WAS LOST ON!!!!
+	
+	If this isn't clear to you, consider; your data is in that
+	free area out there somewhere.  You'd be filling up that free
+	space with itself, essentially at random locations.  There'd be
+	a more than significant chance you'd blow away your potentially
+	interesting data before you got it.
+
+3)  At least as much free disk space on a *TARGET* location as the free space
+	on the afflicted disk.  Ideally you want a bit more than twice
+	as much space, to both write the unallocated space and to save
+	the lazarus results.  This is because lazarus (by default, at least)
+	rewrites all the data in another location as well.  So if you have a 
+	2GB disk with 750MB free, you'd want a second disk with 750MB x 2,
+	or 1.5 GB free.  At least; if you try to reassemble the data in
+	various ways you'll want at least a bit more space to play with.
+
+4)  Ample amounts of free time.  On a test system, a SPARC 5 with a 
+	reasonably fast SCSI drive it took a bit less than hour to unrm 1.8 GB
+	data.  I then ftp'd it over to another system - even at 30-50K 
+	a second (my T-1 tops out at around 150K/sec, but the target
+	system had a much slower line) it took several hours.  Then my 
+	ultra 5 (with an even faster drive) took 10 hours to analyze the 
+	data.  Some 15+ hours and nothing has even been *looked* at yet.
+
+Then take the following steps:
+
+1)  Remove the disk from operational hazards.  If it's a system disk
+	that sees lots of action, halt the system and mount the disk
+	on another system.  Mounting it read-only is a fine idea, so
+	that no additional data is lost.
+
+2)  Run unrm or optionally you can simply use dd(1); for instance
+	(on SunOS/Solaris):
+
+	# dd bs=1000k if=/dev/rsd0b of=whatever
+	# dd bs=1000k if=/dev/rdsk/c0t3d0s1 of=whatever
+
+	# ./unrm /dev/rsd0a > output
+	# ./unrm /dev/rdsk/c0t3d0s0 > output
+
+	Of course dd(1) will make no distinction between free and used
+	blocks; if you're interested in analyzing the free space, use
+	unrm if at all possible.
+
+	If you're feeling brave you can try it on kmem/mem/swap/whatever,
+	although don't blame us if your system doesn't like having it's
+	memory dumped out (worked fine in our systems, but this is
+	potentially dangerous stuff) and crashes:
+
+	# dd bs=1000k if=/dev/kmem of=whatever
+
+3)  Run Lazarus (see lazarus.damn-the-torpedos or lazarus.README).
+
+4)  Now begins the... "interesting" part.  First, what sort of data was
+	lost?  If it was mail or other text files, you might be in luck.
+	You can try to run the "rip-mail" program (see rip-mail.README 
+	for more information) and see if it recovers the info.
+
+	If it was a piece of text - writing, or mail that the rip-mail
+	program didn't recover, then grep(1) is probably your next best
+	friend.  Remember, all the blocks (or runs of blocks) are saved 
+	in individual files in the blocks subdirectory.  So, for instance,
+	if you're looking for your resume, think of keywords that might
+	help you out (like your name, employers, etc.)  You could then
+	do something like:
+
+		% egrep -l 'keyword1|keyword2|...' blocks/*.txt > allfiles
+
+	If there are any files listed, start examining them with a good pager
+	(like less).
+
+	Images are likewise easy; simply do something like ("xv" is a fine
+	Unix image viewer/editor):
+
+		% xv blocks/*.gif blocks/*.jpg
+
+	(Many images are very easy to view with a browser as well.)
+
+	Text based log files (syslog, message, etc.), even though they will 
+	often be spread out all over the disk because of the way they are
+	written (a few records at a time), are actually (potentially) trivial
+	to recover - and in the correct order - because of the wonderful 
+	time stamp on each line; the simplest way (until a better log 
+	analyzer is written) is to (the tr(1) is in there to remove nulls; 
+	shell commands don't like nulls in the files they work with!):
+	
+		% cat blocks/*.l.txt | tr -d '\000' | sort -u > all-logs
+
+	And then browse through them.  A few bits and pieces will probably
+	be lost (due to the fragmentation at block and fragment boundaries),
+	but it's a good way to start.
+
+	Some data, like C source code, is very easy to confuse with other
+	types of program files and text, so a combined arms approach that
+	uses grep & the browser is sometimes useful.  For instance, if you
+	have a section of data that looks like thus on the disk map:
+
+		....CccPpC..Hh....
+
+	The first three recognized text types - C, P, and C - might all be
+	the same type (C).  Finding the block # by simply putting your mouse
+	over the link and then concatenating the files or examining them 
+	manually is great.
+
+	Another good way to find source code is if you know of a specific
+	#include file that the code uses or a specific output line
+	that the program emits - a simple:
+
+		% grep -l rpcsvc/sm_inter.h blocks/*.[cpt].txt
+
+	Will find any files that have rpcsvc/sm_inter.h in them (not a lot,
+	probably! ;-))  This sort of brute force approach can be quite
+	useful.
+	
+	Again, beware of concatenating lots of recovered blocks/files 
+	together and performing text based searches or operations on 
+	them (sort, grep, uniq, etc.)
+
+	The browser based approach can be especially useful if you have 
+	lots of files on a disk.  Because Unix file systems often will have a
+	strong sense of locality that is tied to the directories that the
+	files were once in, you can use the graphical browser to locate
+	an interesting looking section of the disk and try to hunt either
+	using the browser or via standard Unix tools on the saved blocks
+	once you've found an area that looks promising.
+
+
+Random Notes
+-------------
+
+Lazarus should process and emit all data fed into it as input into
+the "blocks" (by default) subdirectory.  If you concatenate all the
+output blocks and compare them to the original image they should be 
+identical.  It doesn't change the input at all, it simply breaks it
+up into more readable pieces.
+
+While text output files created by lazarus can be as short as 1K (or
+whatever the minimum block size is - for FFS and its derivatives it'll
+be 1K), the minimum size for most binary files, irrespective of size
+(like a single-pixel gif) will be the minimum block size that the disk
+can write.  This is because after the first 1K is read in a text file
+will end if it hits binary information (e.g. the garbage at the end of a
+disk block).  Binary files, however, will simply concatenate the (binary)
+garbage on the end of the recognized binary unless by some miracle it's
+recognized as another binary type (doubtful unless real data is in there).
+This could be fixed if lazarus actually looked at the binary format it
+was trying to read and found the size of the file (often contained in
+the header of the file) - it could stop reading after that many bytes,
+and do (perhaps significantly) better overall recognition.
+
+If that's not clear, don't worry about it ;-)  If it is, change the
+variable $BLOCK_SIZE in the lazarus configuration file ("conf/lazarus.cf")
+to be a more reasonable value for the system you're investigating.  1024
+is a very safe, but conservative number (and don't forget to change it
+when examining other systems!), but if you'd like to cheat smartly and 
+increase performance set the block size 8192, which is the FFS logical 
+block size.   You'll then miss all the small files that may not start on 
+a 8kb boundary, however.
+
+
+Unrm
+-----
+
+The unrm program typically requires root privileges to use (at a minimum
+it must have sufficient privileges to read the device), for it examines
+a raw disk device for free data blocks.  See the documentation (the unrm 
+man page) for more information.
+

@@ -1,0 +1,55 @@
+
+******** rip-mail is alpha code *******
+*** rip-mail is (barely) alpha code ***
+******** rip-mail is alpha code *******
+
+Rip-mail is included because it tries to demonstrate how you can save mail
+from bits and pieces of mangled data.  Written in perl, using it is simple;
+you take an arbitrary number of data files and pass them to it on the 
+command line; e.g.:
+
+	perl rip-mail file.1 file.2 ... file.n
+
+And it creates a subdirectory directory (by default, "mail") where it
+stores the results.  It normally uses arbitrary numbers of mangled/lazariid
+mail files (e.g. files created by lazarus that containing blocks that look
+like mail files) and tries to make them into something reasonable (e.g.
+readable by a mail client.)
+
+Mail is saved in a subdirectory (currently "mail"), in files that
+are named with the *first* address on the TO: line that rip-mail finds.
+(zen@fish.com, etc.)
+
+Dates are often missing and are problematic.  If it can't find a date 
+at all, and there never has been a date, it inserts an arbitrary date in 
+the mail header (Thu May 5 12:12:01 1977).  Otherwise, take the last 
+date that it has seen and use that.  (And pray ;-))
+
+Again, to use it, simply type:
+
+	% ./rip-mail blocks/*.m.txt
+
+And watch it scroll (or go out, get a cup of coffee or can of diet coke,
+read some real mail, and then check the window it's running in).  At the 
+end of the run, look in the subdir mail_crypt and try one of the larger 
+files out with a mailer - e.g.:
+
+	% Mail -f mail_crypt/zen@fish.com
+
+Interestingly, the more sophisticated mailers are much less forgiving
+of errors in mail files/folders than ol' ucb or bin mail, so start with
+one of those initially.  However, if you can get a better mailer that
+can suck it in, try it out and see what happens.
+
+
+Notes:
+
+It keeps nulls in the data blocks.  This is probably very foolish.
+
+If it finds mail-like stuff that doesn't have or contains a corrupted TO:
+line it saves it to the filename "lazarus-mail".
+
+It always tears out the content-length field - this is asking for trouble 
+when recovering stuff!  (Mailers will complain & die, so this was the
+easy way out for me & a program I wrote in a day).
+

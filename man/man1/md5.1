@@ -1,0 +1,31 @@
+.TH MD5 1 
+.ad
+.fi
+.SH NAME
+md5
+\-
+compute MD5 signatures
+.SH SYNOPSIS
+.na
+.nf
+\fBmd5\fR \fIfile(s)\fR ...
+.SH DESCRIPTION
+.ad
+.fi
+\fBmd5\fR opens the named \fIfile(s)\fR in order (standard
+input by default) and computes the md5 checksum for each file.
+
+The output format is one line per file with the checksum and
+corresponding file name separated by whitespace (no file name
+is emitted when reading from standard input).
+
+This program has a somewhat easier to parse output format
+than the \fBmd5\fR utility found on some UNIX systems.
+.SH AUTHOR(S)
+.na
+.nf
+Wietse Venema
+This program is part of SATAN.
+
+The MD5 implementation used by this program is placed in the
+public domain for free general use by RSA Data Security.

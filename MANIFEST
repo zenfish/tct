@@ -1,0 +1,84 @@
+
+This is a list of the contents in The Coroner's Toolkit (TCT) package and
+covers some basic functionality.
+
+
+Extra important files:
+----------------------
+
+LICENSE && COPYRIGHT - these two files cover everything that is not 
+	covered by individual copyrights in each package.  Most of the
+	C code is covered by the former; most perl code is covered by
+	the latter.  See individual files to see what is covered by
+	what - if it doesn't explicitly state anything the latter applies.
+
+README.FIRST - the first thing you should read in all this; a short
+	explanation of what this is all about.
+
+README - a general overview of the package, how to use it, etc.
+
+INSTALL - what you need to use TCT as well as how to install it.
+
+MANIFEST - this file!  ;-)
+
+Makefile - the "make" command *must* be run to use TCT; this is the file
+	that controls the installation of the program.
+
+quickstart - for those who hate documentation *and* know what they are doing.
+
+help-when-broken-into - a small tutorial for neophytes who just got broken
+	into and grabbed this package.
+
+BUGS - any outstanding, known bugs
+
+
+Directories:
+------------
+
+Date - the perl date library 
+bin - where all the executable programs live.
+conf - configuration files
+docs - overall documentation for the package
+etc - additional config files that are never changed
+extras - extra toys, tools, and utilities - see the README in that subdir
+lazarus - the data reconstruction program (see additional documentation there).
+lib - perl & C libraries
+man - man pages individual programs
+src - all the C code lives here [several subdirectories, should be obvious]
+
+Individual programs (mostly in the "bin" directory); many only
+created after typing "make":
+---------------------------------------------------------------
+
+reconfig - run this first, it tries to find all the appropriate files
+	on the current system (automatically run when you type "make"
+	after unpacking the source code).
+
+file - attempts to determine the content type of a file (originally
+	from the FreeBSD distribution, ported by wietse).
+grave-robber - the main data gathering program.
+icat - copies (cat(1)) a file by inode number.
+ils - list file system inode information.
+lastcomm - a portable lastcomm command (originally from the FreeBSD
+	distribution, ported by wietse).
+mactime - the M, A, C time file system reporter.
+major_minor - used internally by the TCT, it emits perl code
+md5 - the RSA MD5 digital signature tool.
+pcat - copies the address space of a running process.
+strip_tct_home - used internally by the TCT, it strips out a variable
+	from various files
+unrm - uncovers unallocated blocks from a raw Unix file system.
+
+Miscellaneous files & information:
+----------------------------------
+
+OS-NOTES - some small notes on individual operating systems and their quirks.
+
+TODO - a list of enhancements and improvements we're working on or think
+	should be done.
+
+additional-resources - other tools, etc. that might be useful.
+
+bibliography - some of the resources, electronic and physical, that we 
+	used and swear by, rather than at.
+

@@ -1,0 +1,76 @@
+#
+#   Some files to copy into the vault for safekeeping... note - won't 
+# suck up dirs, only files, so:
+#
+# 	/etc/*
+#
+# wouldn't get stuff in the /etc/postfix subdirectory, for instance,
+# you'd need:
+#
+#	/etc/*/*
+#
+# Also, uses *SHELL* RE, *NOT* perl regexp, so don't try "/etc/.*"!
+#
+#
+
+# Everything should be prepended with $CORPSE so that the -c option
+# will work - it gets ignored if the -c option isn't there, so "/bin"
+# is the same as "$CORPSE/bin", unless the -c is used in the grave-robber.
+
+# just in case you're foolish enough to comment out /etc/*, need these at
+# least!!!  No harm in dups.
+
+$CORPSE/etc/passwd
+$CORPSE/etc/group
+$CORPSE/etc/aliases
+$CORPSE/etc/hosts.*
+$CORPSE/.rhosts
+
+$CORPSE/etc/*
+
+$CORPSE/etc/*/*
+
+$CORPSE/etc/named*/*
+$CORPSE/usr/local/etc/*
+$CORPSE/usr/local/etc/*/*
+
+# need to get that darn kernel file, wherever it is...
+$CORPSE/*
+$CORPSE/.*
+$CORPSE/root/*
+$CORPSE/root/.*
+
+
+# individual files:
+$CORPSE/usr/lib/crontab
+$CORPSE/usr/lib/aliases
+$CORPSE/usr/spool/uucp/L.sys
+
+#
+#  Var has some interesting things.  Shell expansion might die on
+# these, so I'll duplicate work below.  Maybe I should do a -R flag.
+#
+$CORPSE/var/*
+$CORPSE/var/*/*
+$CORPSE/var/*/*/*
+
+# logs?
+$CORPSE/var/log/*
+$CORPSE/var/adm/*
+
+$CORPSE/var/audit/*
+
+#
+# cron, etc?
+$CORPSE/var/spool/cron/crontabs/*
+$CORPSE/var/spool/cron/atjobs/*
+
+$CORPSE/var/spool/*
+$CORPSE/var/spool/*/*
+
+$CORPSE/var/crash/*/*
+
+$CORPSE/var/tmp/.*
+$CORPSE/var/tmp/*
+$CORPSE/tmp/.*
+$CORPSE/tmp/*

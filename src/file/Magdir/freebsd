@@ -1,0 +1,97 @@
+# the following are for BSD/i386 (FreeBSD, NetBSD, etc.)
+
+0	lelong&0377777777	041400407	BSD/i386
+>20	lelong			<4096
+>>3	byte&0xC0		&0x80		shared library
+>>3	byte&0xC0		0x40		PIC object
+>>3	byte&0xC0		0x00		object
+>20	lelong			>4095
+>>3	byte&0x80		0x80		dynamically linked executable
+>>3	byte&0x80		0x00		executable
+>16	lelong			>0		not stripped
+
+0	lelong&0377777777	041400410	BSD/i386 pure
+>20	lelong			<4096
+>>3	byte&0xC0		&0x80		shared library
+>>3	byte&0xC0		0x40		PIC object
+>>3	byte&0xC0		0x00		object
+>20	lelong			>4095
+>>3	byte&0x80		0x80		dynamically linked executable
+>>3	byte&0x80		0x00		executable
+>16	lelong			>0		not stripped
+
+0	lelong&0377777777	041400413	BSD/i386 demand paged
+>20	lelong			<4096
+>>3	byte&0xC0		&0x80		shared library
+>>3	byte&0xC0		0x40		PIC object
+>>3	byte&0xC0		0x00		object
+>20	lelong			>4095
+>>3	byte&0x80		0x80		dynamically linked executable
+>>3	byte&0x80		0x00		executable
+>16	lelong			>0		not stripped
+
+0	lelong&0377777777	041400314	BSD/i386 compact demand paged
+>20	lelong			<4096
+>>3	byte&0xC0		&0x80		shared library
+>>3	byte&0xC0		0x40		PIC object
+>>3	byte&0xC0		0x00		object
+>20	lelong			>4095
+>>3	byte&0x80		0x80		dynamically linked executable
+>>3	byte&0x80		0x00		executable
+>16	lelong			>0		not stripped
+
+0	belong&0377777777	041400407	BSD/i386
+>20	belong			<4096
+>>0	byte&0xC0		&0x80		shared library
+>>0	byte&0xC0		0x40		PIC object
+>>0	byte&0xC0		0x00		object
+>20	belong			>4095
+>>0	byte&0x80		0x80		dynamically linked executable
+>>0	byte&0x80		0x00		executable
+>16	belong			>0		not stripped
+
+0	belong&0377777777	041400410	BSD/i386 pure
+>20	belong			<4096
+>>0	byte&0xC0		&0x80		shared library
+>>0	byte&0xC0		0x40		PIC object
+>>0	byte&0xC0		0x00		object
+>20	belong			>4095
+>>0	byte&0x80		0x80		dynamically linked executable
+>>0	byte&0x80		0x00		executable
+>16	belong			>0		not stripped
+
+0	belong&0377777777	041400413	BSD/i386 demand paged
+>20	belong			<4096
+>>0	byte&0xC0		&0x80		shared library
+>>0	byte&0xC0		0x40		PIC object
+>>0	byte&0xC0		0x00		object
+>20	belong			>4095
+>>0	byte&0x80		0x80		dynamically linked executable
+>>0	byte&0x80		0x00		executable
+>16	belong			>0		not stripped
+
+0	belong&0377777777	041400314	BSD/i386 compact demand paged
+>20	belong			<4096
+>>0	byte&0xC0		&0x80		shared library
+>>0	byte&0xC0		0x40		PIC object
+>>0	byte&0xC0		0x00		object
+>20	belong			>4095
+>>0	byte&0x80		0x80		dynamically linked executable
+>>0	byte&0x80		0x00		executable
+>16	belong			>0		not stripped
+
+# XXX gross hack to identify core files
+# cores start with a struct tss; we take advantage of the following:
+# byte 7:     highest byte of the kernel stack pointer, always 0xfe
+#      8/9:   kernel (ring 0) ss value, always 0x0010
+#      10 - 27: ring 1 and 2 ss/esp, unused, thus always 0
+#      28:    low order byte of the current PTD entry, always 0 since the
+#             PTD is page-aligned
+#
+7	string	\357\020\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0	i386 a.out core file
+>1039	string	>\0	from "%s"
+
+# /var/run/ld.so.hints
+# What are you laughing about?
+0	lelong			011421044151	ld.so hints file
+>4	lelong			>0		(version %d)

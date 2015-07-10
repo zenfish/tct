@@ -1,0 +1,102 @@
+.TH FINDKEY 1 
+.ad
+.fi
+.SH NAME
+findkey
+\-
+find high-entropy data
+.SH SYNOPSIS
+.na
+.nf
+.ad
+.fi
+\fBfindkey\fR [\fB-cdlmx\fR] [\fB-b \fIbias\fR] [\fB-w \fIwindow\fR]
+[\fB-t \fIthreshold\fR] \fIfile...\fR
+.SH DESCRIPTION
+.ad
+.fi
+\fBfindkey\fR moves a fixed-size window over the named files (stdin
+by default) and reports window positions containing a large number
+of different symbols. This approach, described by Shamir and van
+Someren, simplifies Shannon's entropy formula and allows for faster
+searching.
+
+By default, overlapping regions of \fIwindow\fR bytes with
+high-entropy content are reported as one large region:
+
+.ti +4
+\fIfile start [content] length\fR
+
+Fields are tab separated. By default no content is shown.
+
+In order to display the content of potential keys, specify the
+\fB-x\fR option (show content).
+
+In order to report potential keys individually, specify the
+\fB-d\fR option (detail mode).
+
+Options:
+.IP \fB-c\fR
+Calibration mode. Report each high-entropy region of \fIwindow\fR
+bytes as: \fIfile start threshold bias [content]\fR. This is useful
+for deriving good \fIthreshold\fR and \fIbias\fR values from real
+data. Use of this option implies \fB-d\fR.
+.IP \fB-d\fR
+Detail mode. Report each high-entropy region of \fIwindow\fR bytes
+as: \fIfile start [content]\fR. This option increases the amount
+of output considerably. Combine this option with with \fB-x\fR to
+display the content of individual keys.
+.IP "\fB-b \fIbias\fR (default: 31)"
+Exclude data that is too monotonic. \fBfindkey\fR counts how often
+successive byte values increase or decrease. The number of increments
+and decrements in a window must not differ by more than \fIbias\fR.
+For 64-byte windows, 22 is a good bias value.
+.IP \fB-l\fR
+Report only the names of files containing high-entropy regions.
+.IP "\fB-m\fR (default)"
+Merge mode. Report multiple overlapping high-entropy windows as
+one region, using the format: \fIfile start [content] length\fR.
+Use of this option can reduce the amount of output considerably.
+.IP "\fB-t \fIthreshold\fR (default: 95)"
+Search for windows with at least \fIthreshold\fR different symbols.
+For 64-byte windows, 52 is a good threshold value.
+.IP "\fB-w \fIwindow\fR (default: 128)"
+Search for high-entropy regions of at least \fIwindow\fR bytes.
+Use of \fB-w\fR also requires use of the \fB-b\fR and \fB-t\fR options.
+.IP \fB-x\fR
+Display high-entropy content in hexadecimal form.
+.SH HISTORY
+.na
+.nf
+.fi
+.ad
+This \fBfindkey\fR command was written for the coroner's toolkit.
+.SH LICENSE
+.na
+.nf
+This software is distributed under the IBM Public License.
+.SH SEE ALSO
+.na
+.nf
+.ad
+.fi
+A. Shamir and N. van Someren, Playing Hide and Seek With Stored
+Keys, 1998.
+.nf
+.na
+http://www.ncipher.com/products/files/papers/anguilla/keyhide2.pdf.
+.PP
+.ad
+.fi
+C.E.  Shannon, A mathematical theory of communication. Bell
+System Technical Journal 27 (1948) 379-423, 632-656.
+.nf
+.na
+http://cm.bell-labs.com/cm/ms/what/shannonday/shannon1948.ps.gz
+.SH AUTHOR(S)
+.na
+.nf
+Wietse Venema
+IBM T.J. Watson Research
+P.O. Box 704
+Yorktown Heights, NY 10598, USA

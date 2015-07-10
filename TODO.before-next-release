@@ -1,0 +1,17 @@
+
+laz notes on various ways to view the stuff (pop-up, inpage, etc.)
+
+sub modinfo: this code does not work. modinfo needs arguments.
+
+bsd.pl: sub lastcomm, don't run lastcomm on someone elses database,
+unless you know it is the same system type... same problem as with
+dumping someone elses last database.
+
+Design notes - safe commands, log all commands, no shell used...
+
+does "grave-robber -m <dirname>" do a stat on <dirname>?
+
+test mactime -d & -B flags
+
+last -f [/var/adm/wtmp]?
+

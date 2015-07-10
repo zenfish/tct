@@ -1,0 +1,372 @@
+#!/usr/bin/perl5
+
+#
+#  Goes through text & binaries files, looking for executables
+# and files of potential interest; a basic dependency file finder.
+#
+# Usage:
+#
+#   $0 -[bcdrvw]
+#
+#  -b == do full processing even on binary files (false positive alert!)
+#  -c == turn off most caching (if having problems fitting in memory)
+#  -d == debug (really, you shouldn't use this!)
+#  -l == preload common executables into cache (from /bin, /usr/bin, etc.)
+#  -p == print out all the parent files of a file
+#  -r == do *NOT* do recursion
+#  -v == verbose
+#  -w == check files found for world-writability as well
+#
+#  Two basic modes of operation depending on the file type, binary or text:
+#
+# Binary (determined by perl's -B operator):
+#
+#	Do a strings on the file; with the -b option it parses each 
+# 	line, every token (things seperated by space or various 
+#	punctuation marks) will be examined to see if it is a file; 
+#	if it isn't a full pathname, it examines the PATH to see if it is in
+#	there (see below).  Without the -b flag this tokenizing isn't
+#	done and it looks at only full pathnames, so that "echo" would 
+#	not be looked at, but "/bin/echo" would be.
+#
+# Text:
+#
+#	Parse every line, ignoring shell-style comment lines (beginning
+#	with a hash mark (#), and otherwise process as binary file with
+#	the -b flag.
+#
+#  In addition, it looks at the path and does recursion:
+#
+# The PATH:
+#
+# 	If PATH is set (via PATH=...), it runs off to get all binaries in
+#	the path so that if we see "awk" instead of "/bin/awk" it'll do
+#	the right thing.  The -l option loads in some common dirs containing
+#	commands, like /bin, /usr/bin, etc.  (Esp. useful for examining 
+#	binary files.)
+#
+# Recursion:
+#
+#	Normally it looks in the files it is pointed at ****as well as 
+#	recursively going through the files that are inside that****.
+#	This means if you have a line like:
+#
+#		echo /usr/local/bin/foo
+#
+#	The program will also examine the contents of both echo (probably
+#	/bin/echo) as well as /usr/local/bin/foo.  This can be turned off
+#	with the -r flag.
+#
+
+$running_under_grave_robber = 1;
+
+$TCT_HOME = "";
+require "$TCT_HOME/conf/coroner.cf";
+
+require "paths.pl";
+require "is_able.pl";
+require "process_dirs.pl";
+require "realpath.pl";
+require "getopts.pl";
+
+$usage = "usage: $0 [-bcdlprvwP] file(s)\n";
+
+&Getopts("bcdlprvwP") || die $usage;
+
+$cache       = 1 unless $opt_d;
+$debug       = 1 if $opt_d;
+$preload     = 1 if $opt_l;
+$parents     = 1 if $opt_p;
+$oneparent   = $parents = 1 if $opt_P;
+$recursion   = 1 unless $opt_r;
+$verbose     = 1 if $opt_v;
+$writability = 1 if $opt_w;
+
+# hot piping output... (don't buffer stdout)
+$| = 1;
+
+#
+# taken from various man pages; don't process these!
+#
+%keywords = { "!", 1,
+		"case", 1, "do", 1, "done", 1, "elif", 1, "else", 1,
+		"esac", 1, "fi", 1, "for", 1, "function", 1, "if", 1,
+		"in", 1, "select", 1, "then", 1, "until", 1, "while", 1,
+		"{", 1, "}", 1, "=", 1, "!=", 1, "<=", 1, ">=", 1,
+		"ne", 1, "gt", 1, "lt", 1, "eq", 1,
+		};
+
+#
+#  this does all the main stuff... grab a file, process, store results
+#
+sub suck_shell {
+local($file, $calling_file) = @_;
+
+#
+# local filehandle.  Funny how things weren't working before I finally
+# found this godd***ed bug (and looked it up in the camel book) ;-)
+#
+local(*S);
+
+# /proc is bad news...
+return if ($file =~ /^\/proc\//);
+
+print "Going into suck_shell with $file, called by $calling_file\n" if $verbose;
+
+$file = &realpath($file) if ($file =~ /^\//);
+
+return unless -f $file;
+
+# -p   File is a named pipe (FIFO).
+# -S   File is a socket.
+# -b   File is a block special file.
+# -c   File is a character special file.
+# -t   Filehandle is opened to a tty.
+return unless (-f $file && !(-p $file||-S $file||-b $file||-c $file||-t $file));
+
+#
+# we cache stuff, no sense in working too hard
+#
+if ($cache) {
+	if (defined($all_files{$file})) {
+		print "already processed $file\n" if $debug;
+		return;
+		}
+	}
+
+#
+# put a certain amount of padding in front of lines for asthetix and
+# greater understanding; increases by one each time it recurses...
+# currently don't use this, alternate way of printing out stuff, still
+# testing things...
+#
+if ($prefix_flag) {
+	$prefix_padding .= ".";
+	$space_padding .= " ";
+	}
+else { $prefix_flag = 1; }
+
+
+# keep files in ascending numerical order so that I can print them out 
+# in a reasonable order at the very end
+$all_files{$n++} = $file;
+
+if ($parents) {
+	if (defined($ancestors{$calling_file})) {
+		if ($oneparent) {
+			$ancestors{$file} = "$calling_file";
+			}
+		else {
+			$ancestors{$file} = "$calling_file $ancestors{$calling_file}";
+			}
+		}
+	else { $ancestors{$file} = $calling_file; }
+	}
+
+print "F: $file, CF: $calling_file\n" if $debug;
+
+#
+# if file is text, open normally, else use strings
+#
+if (-B $file) {
+	$binary = 1 unless $b;
+	print "using $STRINGS on $file\n" if $debug;
+	if (!open(S, "$STRINGS $file |")) {
+		warn "Can't open binary file $file with $STRINGS\n";
+		return;
+		}
+	}
+else {
+	$binary = 0;
+	print "opening $file normally\n" if $debug;
+	if (!open(S, $file)) {
+		warn "Can't open text file $file\n";
+		return;
+		}
+	}
+
+#
+# start the magic... any files in there?
+#
+while (<S>) {
+
+	# kill off comments, blank lines
+	next if (/^\s*#/ || /^\s*$/);
+
+	print "\nLine ($file): $_" if $debug;
+
+	# (look for paths now; we strip out valuable path info just below)
+
+	#
+	#  Given a bourne/ksh/bash shell script, this hunts down PATH lines
+	# parse the paths, and then store all executables in the path
+	#
+
+	if (!$binary && /PATH=/) {
+		print $_ if $debug;
+		#
+		#  This regexp rips out the PATH= part and anything
+		# like semicolons, etc. after path statement, which often
+		# looks like:
+		#
+		# PATH=/bin:/usr/bin:/usr/etc; export PATH
+		#
+		($path = $_) =~ s/^.*=([^\s;]+)[;\s]?.*$/$1/;
+		@path = split(/:/, $path);
+		print "$path\n" if $debug;
+
+		#
+		# rip through all the dirs, getting executable files
+		#
+		for $dir (@path) {
+			print "D: $dir\n" if $debug;
+
+			# needs to be a dir or something new
+			next unless -d $dir;
+			next if (!defined($all_paths{$dir}));
+
+			&suck_exes($dir);
+			$all_paths{$dir} = $dir;
+			}
+		}
+
+	# strip off punctuation, etc... more false hits, but
+	# necessary, I think...
+	$_ =~ s/[\'\"\?\;\:\!\]\[\}\{]/ /g;
+
+	print "Line post-proccessing: $_" if $debug;
+
+	# chop the line into little bits, look at each part
+	(@line_bits) = split();
+	for $bit (@line_bits) {
+
+		print "examining $bit " if $debug;
+
+		# cache; skip if seen before
+		if ($cache) {
+			next if (defined($all_bits{$bit}));
+			$all_bits{$bit} = $bit;
+			}
+
+		print "... $bit ... " if $debug;
+
+		#
+		# if it starts with a $ assume it's a var, ignore,
+		# if starts with a "-|other stuff" odd thing, also ignore
+		#
+		if ($bit eq /^\$/ || $bit =~ /^[-]/) {
+			print "odd stuff: $bit\n" if $debug;
+			}
+		#
+		# if it starts with a / assume it's a full path
+		#
+		elsif ($bit =~ /^\//) {
+			print "full path!  $bit\n" if $debug;
+			if (-f $bit) {
+				print "$bit\n" if $debug;
+				print "$bit ($file)\n" if $debug;
+				&suck_shell($bit, $file) if $recursion;
+				}
+			}
+
+		#
+		# is it a shell keyword?
+		#
+		elsif (defined($keywords{$bit})) {
+			print "keyword ($bit)\n" if $debug;
+			}
+		
+		#
+		# else is it in the path somewhere?
+		#
+		elsif ($all_exes{$bit}) {
+			# binary stuff gets a lot of hits... ;-(
+			next unless !$binary;
+
+			if ($debug) {
+				print "Found $bit at $all_location_exes{$bit}\n"
+				}
+			# else { print "$all_location_exes{$bit}\n"; }
+
+			&suck_shell($all_location_exes{$bit}, $file) if $recursion;
+			}
+
+		#
+		# else...
+		#
+		# elsif (-f $bit) {
+		# 	if ($debug) { print "file $bit exists\n"; }
+		# 	# else { print "$bit\n"; }
+		# 	&suck_shell($bit, $file) if $recursion;
+		# 	}
+		else {
+			print "can't figure out $bit ...?\n" if $debug;
+			}
+		}
+	# print "\n" if $debug;
+	}
+
+close(S);
+
+# take away one from the padding, unless it is already 0...
+$len = length($prefix_padding);
+
+if ($len > 1) {
+	$prefix_padding = substr($prefix_padding, 0, $len - 1);
+	$space_padding = substr($space_padding, 0, $len - 1);
+	}
+
+}
+
+# from the camel book (why this just isn't part of the language...)
+sub numerically { $a <=> $b; }
+
+#
+#
+#  the actual work...
+#
+#
+
+#
+# load up some executables in the cache if the -l flag is used...
+#
+if ($preload) {
+	&suck_exes("/bin");
+	&suck_exes("/usr/sbin");
+	&suck_exes("/usr/bin");
+	&suck_exes("/sbin");
+	&suck_exes("/etc");
+	&suck_exes("/usr/etc");
+	}
+
+for $i (0..($#ARGV)) {
+	&suck_shell($ARGV[$i]);
+	}
+
+#
+# print out the resulting files, check them for writability; must be
+# a full pathname
+#
+for $filenum (sort numerically keys %all_files) {
+	$tmp = $all_files{$filenum};
+	# want files that start with a /
+	next unless $tmp && ($tmp =~ /\//);
+
+	print "$tmp\n";
+
+ 	print "\t($ancestors{$tmp})\n" if ($parents && $ancestors{$tmp});
+ 	}
+
+exit 0 unless $writability;
+
+print "\n";
+#
+# check files for writability
+#
+for $filenum (sort numerically keys %all_files) {
+	$tmp = $all_files{$filenum};
+	next unless $tmp && ($tmp =~ /\//);
+	&'is_able($tmp, "w", "w") if $file;
+	}
+
+1;

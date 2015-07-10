@@ -1,0 +1,45 @@
+.TH TIMEOUT 1 
+.ad
+.fi
+.SH NAME
+timeout
+\-
+run command with bounded time
+.SH SYNOPSIS
+.na
+.nf
+\fBtimeout\fR [-\fIsignal\fR] \fItime\fR \fIcommand\fR ...
+.SH DESCRIPTION
+.ad
+.fi
+\fBtimeout\fR executes a command and imposes an elapsed time limit.
+The command is run in a separate POSIX process group so that the
+right thing happens with commands that spawn child processes.
+
+Arguments:
+.IP \fI-signal\fR
+Specify an optional signal to send to the controlled process.
+By default, \fBtimeout\fR sends SIGKILL, which cannot be caught
+or ignored.
+.IP \fItime\fR
+The elapsed time limit after which the command is terminated.
+.IP \fIcommand\fR
+The command to be executed.
+.SH DIAGNOSTICS
+.ad
+.fi
+The command exit status is the exit status of the command
+(status 1 in case of a usage error).
+.SH LICENSE
+.na
+.nf
+The IBM PUBLIC LICENSE must be distributed with this
+software.
+.SH HISTORY
+.na
+.nf
+This program was first released as part of SATAN.
+.SH AUTHOR(S)
+.na
+.nf
+Wietse Venema

@@ -1,0 +1,81 @@
+.TH ENTROPY 1 
+.ad
+.fi
+.SH NAME
+entropy
+\-
+compute data entropy
+.SH SYNOPSIS
+.na
+.nf
+.ad
+.fi
+\fBentropy\fR [\fB-b \fIblock_size\fR] \fIfile...\fR
+.SH DESCRIPTION
+.ad
+.fi
+\fBentropy\fR reports entropy values for the named files (standard
+input by default). The entropy is computed with Shannon's formula
+applied to byte streams. The result gives the average number of bits
+of information per byte, under the assumption that the input has no
+specific structure.
+
+For each file, entropy is reported as follows:
+
+.ti +4
+file file_entropy block_count min_entropy max_entropy
+
+Fields are tab separated.
+
+.IP \fIfile\fR
+The name of the file.
+.IP \fIfile_entropy\fR
+The entropy computed over the entire file contents.
+.IP \fIblock_count\fR
+The number of \fIblock_size\fR blocks used for the minimal and
+maximal per-block entropy computation.
+.IP "\fImin_entropy, max_entropy\fR"
+The minimal and maximal per-block entropy for the named file.
+No per-block entropy is computed for partial blocks.
+.PP
+Options:
+.IP "\fB-b \fIblock_size\fR (default: 8192)"
+The block size to be used for per-block entropies.
+.SH BUGS
+.ad
+.fi
+Entropy values can be misleading.
+.IP \(bu
+The per-file entropy computed over the entire file is larger
+than any per-block entropy value for that same file.
+.IP \(bu
+The entropy values as reported by this program are valid only
+for unstructured input. With real data such as text the result
+is an overestimate.
+.SH HISTORY
+.na
+.nf
+.fi
+.ad
+This \fBentropy\fR command was written for the coroner's toolkit.
+.SH LICENSE
+.na
+.nf
+This software is distributed under the IBM Public License.
+.SH SEE ALSO
+.na
+.nf
+.ad
+.fi
+C.E.  Shannon, A mathematical theory of communication. Bell
+System Technical Journal 27 (1948) 379-423, 632-656.
+.nf
+.na
+http://cm.bell-labs.com/cm/ms/what/shannonday/shannon1948.ps.gz
+.SH AUTHOR(S)
+.na
+.nf
+Wietse Venema
+IBM T.J. Watson Research
+P.O. Box 704
+Yorktown Heights, NY 10598, USA

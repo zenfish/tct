@@ -1,0 +1,39 @@
+
+The simplest way to get started is...
+
+Start out by typing:
+
+	# make
+
+Everything should compile cleanly.
+
+Test the stuff with a quick run; try 10M of a raw filesystem or something:
+
+	# ./unrm /dev/raw-device | dd count=10000 bs=1024 > output-file
+
+Then try:
+
+	# ./lazarus -h output-file
+
+This will create two directories - "www" (containing all the HTML code)
+and "blocks" (containing the data blocks processed.)  Run a browser on 
+"output-file.frames.html"  Click on some stuff.  Does it work?  You can 
+also examine the individual blocks manually by checking out the blocks
+subdirectory.
+
+
+If it looks good, continue on the full device:
+
+	# ./unrm /dev/raw-device > output-file-not-on-the-same-filesystem
+
+Wait some minutes, up to an hour or more, depending on the size of the target.
+
+	# ./lazarus -h output-file-not-on-the-same-filesystem
+
+Wait for a longer time, some hours probably, if you've run it on
+a lot of data.  The final output can be read via browser at:
+
+	output-file-not-on-the-same-filesystem.frames.html
+
+(Notice the "frames.html", not simply ".html"!)
+

@@ -1,0 +1,38 @@
+
+(You'll need perl 5.004 - lsof is *highly* suggested.)
+
+Do the following to quickly fire up TCT:
+
+	1) type "make"
+
+(Ignore notes about not finding files and moving on, unless it explicitly
+keels over and dies).
+
+And, as either as root or as an unprivileged user (root will allow you
+to capture files and process information that a normal user won't, but
+for testing purposes it's fine to run it from a non-system account):
+
+	2) type "bin/grave-robber -v directory"
+
+(Where "directory" is some dir you want to try it out on.  Try /etc or
+something for starters; typically you'll want to use "/" in a real
+investigation.  Beware of NFS dirs, etc., as the grave-robber will
+merrily suck up everything in its path.)
+
+***	The -p flag is a flag to capture additional process data - if 
+***	you're feeling brave, try it!  (You'll collect more data, but 
+***	could crash your system, especially if you're running a windows
+***	system at the time).
+
+If you're doing a security investigation you should disconnect the system
+from the network - if at all possible - before starting (while this will
+make DNS resolution difficult, it is still advised).  After finishing
+the run you should also remove all your output from the system so it
+cannot be seen or modified by others.
+
+Finally, there are two log files of general interest that are generated
+by the grave-robber - "coroner.log" and "error.log".  The first logs
+all the shell commands and when they were executed, the error log lists
+all the output going to stderr, which is often, but not always, of some
+interest.
+

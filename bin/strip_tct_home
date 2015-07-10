@@ -1,0 +1,51 @@
+#!/usr/bin/perl5
+#
+#  NOTE!!!
+#
+#      You don't want to run this, it's a support tool automatically
+# run by make.  Reconfig adds a line setting the $TCT_HOME variable; this 
+# takes it out again (run on a "make tidy").
+#
+
+@files2reconfig = <lazarus/lazarus conf/coroner.cf conf/grave-robber.cf lib/*.pl bin/* extras/bdf extras/ils2mac extras/realpath>;
+
+# where are we now?
+chop($cwd = `pwd`);
+
+# a few small files; suck them in, change in memory, overwrite the old one
+for $file (@files2reconfig) {
+
+	$seen = $n = $done = 0;
+
+	die "Can't open $file for reading\n" unless open(FILE, $file);
+	while (<FILE>) {
+		# see if we've already been here...
+		# DO NOT remove the \ from the regexp or you will regret it.
+		if (/TCT_HOME = \"/ && !/""/ && !$done) {
+			# print "found TCT_HOME, nuking it...\n";
+			$file{$n++} = "\$TCT_HOME = \"\";\n";
+			$done = 1;
+			next;
+			}
+		elsif (/TCT_HOME = \"/ && !$done) {
+			warn "reconfig seems to have already run on $file\n";
+			$seen = 1;
+			last;
+			}
+		$file{$n++} = $_;
+		}
+	close(FILE);
+
+	next if $seen || !$done;
+
+	# print the new version
+	die "Can't open $file for writing\n" unless open(FILE, ">$file");
+
+	print "Removing \$TCT_HOME from $file\n";
+
+	for ($i = 0; $i < $n; $i++) {
+		print FILE $file{$i};
+		}
+	close(FILE);
+	}
+

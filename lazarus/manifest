@@ -1,0 +1,44 @@
+
+Welcome!  All this - and the most current version of lazarus - is kept at:
+
+	http://www.fish.com/security/tct.html
+
+Files included in this subdirectory include:
+
+	Makefile			- makes all the C progs
+
+	src/file			- a port of file(1)
+
+	src/fstools			- various filesystem tools;
+					  "unrm" is the main thing of
+					  interest here for this part
+					  of the project.
+
+	postprocessing			- tools that can be used after
+					  lazarus has processed the data.
+
+	lazarus.damn-the-torpedos	- if you don't want to read docs...
+
+	lazarus				- the lazarus program source
+	lazarus.cf			- lazarus conf file
+
+	paths.pl			- where a few commands are for lazarus
+
+	TODO				- brief list of some stuff to do
+
+An overview of lazarus - lazarus.README - can be found in the "docs" 
+subdirectory of the main TCT directory and in the lazarus man page (in the
+"man" subdirectory of the TCT).
+
+
+You should be able to type "make" and the programs should compile.  After
+that, either read "lazarus.txt" or, if impatient/don't want to read docs,
+"lazarus.damn-the-torpedos" to get started.
+
+
+Any questions should go to tct@fish.com.  This will go to both wietse
+and myself.  Individual mail to us can be sent to zen@fish.com or 
+wietse@porcupine.org.
+
+	dan & wietse
+

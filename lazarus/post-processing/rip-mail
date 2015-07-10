@@ -1,0 +1,354 @@
+#!/usr/local/bin/perl
+
+#
+#  take mangled/un-rm'd mail files and try to make them into something 
+# reasonable (e.g. readable by a mail client.)  Always tear out the
+# content-length field - asking for trouble!  ;-)  (Mailers will complain)
+#
+
+$debug = 1;
+$debug = 0;
+
+#
+#  dir to put stuff in
+#
+$crypt = ".";
+$crypt = "mail";
+
+if (!-d $crypt) {
+	mkdir($crypt,0700);
+	die "couldn't make $crypt dir\n" unless $!;
+	}
+
+$MAX_LEN = 100;
+
+#
+#  If there is no "TO:" line, where do we put the stuff?
+#
+$anonymous_to = "lazarus-mail\n";
+
+#
+#
+#
+#
+#  The Big Loop...
+#
+for (@ARGV) {
+	$mail_to_be_checked = $_;
+
+	die "Can't open $mail_to_be_checked (1)\n" unless 
+		open(MAIL, $mail_to_be_checked);
+
+	print "Looking at $mail_to_be_checked...\n" if $debug;
+
+SOM:
+
+	$n = 1;
+	$from = $from2 = $to = "";
+	undef(%header);
+
+	#
+	#  If a message is mangled we'll stick in a from line, change
+	# this to zero, and pray.
+	#
+	$start_o_header = 1;
+	$n = 1;
+
+	$havent_started_yet = 1;
+	while (<MAIL>) {
+
+		next if ($havent_started_yet && !/^from[: ]/i);
+
+		$havent_started_yet = 0;
+
+		#
+		# kill off any nulls that have crept into the file...
+		#
+		if (/\000/) {
+			print "NULL!\n" if $debug;
+			s/\000//g;
+			}
+
+		$mail_num++;
+		last if /^$/;
+
+		print "X: $_" if $debug;
+
+		$to    = $_ if /^to: /i;
+		$from  = $_ if /^from /i;
+		$from2 = $_ if /^from:/i;
+		$date  = $_ if /^date:/i;
+
+		#  This is mail, not news, recovery!
+		# last if /^newsgroups:/i;
+		if (/^newsgroups:/i) {
+			close(MAIL);
+			goto SOM;
+			}
+
+		$headers{$n++} = $_;
+		}
+
+	#
+	#  fix date stuff, including on "^From " line
+	#
+	&create_faux_date();
+
+	#  This is mail, not news, recovery!
+	if (/^newsgroups:/i) {
+		close(MAIL);
+		next;
+		}
+
+	#
+	# we don't need much...
+	#
+	if ($from || $from2) {
+
+		if ($from && $from2 && $to) {
+			print "\nNo work needs to be done\n" if $debug;
+			@recipients = &get_recipients();
+			# print "R: ", @recipients, "\n";
+			for $recipient (@recipients) {
+				print "trying to save $mail_num for $recipient\n";
+				&save_header();
+				$end_of_mail = &save_body();
+
+				goto SOM if !$end_of_mail;
+				}
+			}
+		else {
+			print "\nPreparing reconstructive surgery...\n" if $debug;
+			last unless &fix_header();
+			print "message saved!\n" if $debug;
+			@recipients = &get_recipients();
+			for $recipient (@recipients) {
+				print "trying to save $mail_num for $recipient\n";
+				&save_header();
+				$end_of_mail = &save_body();
+				goto SOM if !$end_of_mail;
+				}
+			}
+		}
+
+	close(MAIL);
+	print "\n" if $debug;
+	}
+
+
+#
+#  Lots of messages will be mangled.  I'm not sure, but what we really
+# want appears to be a "From " on the first line... give it a shot.
+#
+sub fix_header
+{
+
+$start_o_header = 0;
+
+if (!$from) {
+	# ($header_string, $from, $stuff) = split(/\s/, $from2);
+	(@stuff) = split(/\s/, $from2);
+
+	# who has the addr?
+	for (@stuff) {
+		$from = $_ if /@/;
+		}
+	if (!$from) {
+		($header_string, $from, $stuff) = split(/\s/, $from2);
+		}
+
+	print "putting in $from in the \"From \" line...\n" if $debug;
+	$start_o_header = 0;
+	$headers{0} = "From $from $faux_date";
+	}
+
+if (!$to) {
+	$to = "$anonymous_to";
+	print "putting in $to in the \"To:\" line...\n" if $debug;
+	}
+
+#
+# if we blow it, don't do this... gotta check above, tho ;-)
+#
+return 1;
+
+}
+
+#
+#  Write out the letter header into the appropriate mailbox.
+# Currently I open & close the file each time, for both header
+# and body writing; it may be better simply to leave them all open,
+# or at least for the current message.
+#
+sub save_header
+{
+
+#
+# what email addr was it sent to?  Assume email addr can be enclosed
+# in one of ( < [ " ' { (and the corresponding right-hand-side...
+#
+# ($recipient = $to) =~ s/to:\s[{<\s'"\]](\S+\@\S+)[}>\s'`"\]].*$/$1/i;
+
+# nuke /'s
+$recipient =~ s@/@_@g;
+# flatten case
+$recipient =~ tr@[A-Z]@[a-z]@;
+# limit length
+$recipient = substr($recipient, 0, $MAX_LEN);
+
+die "Can't open $recipient (2)\n" unless open(LAZ, ">>$crypt/$recipient");
+
+print "Saving header ($start_o_header/$headers{$start_o_header}) in $recipient\n" if $debug;
+
+# print LAZ "\n";
+for ($i = $start_o_header; $i<$n; $i++) {
+	print "H: $headers{$i}" if $debug;
+
+	print LAZ $headers{$i} unless 
+		($headers{$i} =~ /^content-length:/i);
+	}
+
+close(LAZ);
+
+}
+
+#
+#  Write out the letter body into the appropriate mailbox
+#
+sub save_body
+{
+
+local($end_of_mail);
+
+$end_of_mail = 1;
+
+die "Can't open $recipient (3)\n" unless open(LAZ, ">>$crypt/$recipient");
+
+print "Saving body in $recipient\n" if $debug;
+
+while (<MAIL>) {
+	#
+	# kill off any nulls that have crept into the file...
+	#
+	if (/\000/) {
+		print "NULL!\n" if $debug;
+		s/\000//g;
+		}
+
+	#
+	#  if we see this, stop the presses...
+	#
+	if (/^From /) {
+		$end_of_mail = 0;
+		last;
+		}
+	print LAZ $_;
+
+	}
+
+close(LAZ);
+
+return($no_from);
+
+}
+
+#
+#  get the recipients in this tangled mess...
+#
+
+sub get_recipients
+{
+local (@recip);
+
+$to_tmp = $to;
+
+$x = 0;
+
+# print "GOING into LINE: $to";
+
+$res = (@to) = split(/\s/, $to);
+
+# print "RES: $res\n";
+#
+#  If that's all we have, take it...
+#
+if ($res <= 2) {
+	$to = pop(@to);
+
+	#
+	# commas... what to do?  For now, nuke everything after a comma.
+	# give it a try...
+	# $to =~ s/,//g;
+	$to =~ s/,.*$//g;
+
+	# ($to{$x++} = $to) =~ s/[,\{\<\s\'\"\(\)\}\>\[\]]//g;
+	($to{$x++} = $to) =~ s/^.*[,\{\<\s\'\"\(\[](\S+)[\s\)\}\>\]].*$/$1/g;
+
+	# print "TO: $to{$x - 1}\n";
+	}
+
+else {
+	$num = $res;
+	for (;$num > 1; $num--) {
+		$to = pop(@to);
+		$to =~ s/,//g;
+		$to =~ s/^.*[,\{\<\s\'\"\(\[](\S+)[\s\)\}\>\]].*$/$1/g;
+
+		# print "TO: $to\n";
+
+		if ($to !~ /@/) {
+			if ($to !~ /asya|muffy|jym|$anonymous_to/) {
+				$x++;
+				next;
+				}
+			}
+
+		$to{$x++} = $to;
+		# print "IN!!! ($x): $to\n";
+		}
+	}
+for ($i = 0; $i <= $res; $i++) {
+	# print "Y: $to{$i}\n" if $to{$i};
+	push(@recip, $to{$i}) if $to{$i};
+	}
+
+$to = $to_tmp;
+@to = "";
+undef(%to);
+
+return(@recip);
+}
+
+#
+#  Don't really know what is a good thing here... let's choose a random
+# date if I've seen absolutely nothing.  I'll take the last date line
+# I've seen otherwise... it's amazing how much mail doesn't have dates
+# in it.
+#
+sub create_faux_date 
+{
+
+print "Creating faux date...\n" if $debug;
+
+if ($date) {
+	($faux_date = $date) =~ s/^[Dd][Aa][Tt][Ee]://;
+	}
+else {
+	$faux_date = "Thu May 5 12:12:01 1977";
+	}
+
+print "date = $faux_date ($from)\n" if $debug;
+
+$res = split(/\s/, $from);
+print "date ($res) = $faux_date\n" if $debug;
+
+if (split(/\s/, $from) == 2) {
+	chop($from);
+	$headers{$start_o_header} = "$from $faux_date";
+	print "Changed from to $from\n" if $debug;
+	}
+
+return $faux_date;
+
+}
+

@@ -1,0 +1,179 @@
+#
+# Configuration file for coroner's toolkit
+#
+
+$TCT_HOME = "";
+
+$LIB    = "$TCT_HOME/lib"  unless $LIB;
+$BIN    = "$TCT_HOME/bin"  unless $BIN;
+$ETC    = "$TCT_HOME/etc"  unless $ETC;
+$CONFIG = "$TCT_HOME/conf" unless $CONFIG;
+
+@INC = ("$TCT_HOME/lib", "$TCT_HOME/conf", @INC);
+
+#
+#  Where all the full pathnames to the various shell binaries used live
+#
+require "paths.pl";
+
+#
+#  Turns on lots more debugging verbage
+#
+# $debug = 1;
+# $debug = 0;
+
+# where does all the data go?
+$blocks = "blocks";
+
+#
+# stderr goes...
+#
+$error_log = "error.log";
+
+#
+# Don't copy file larger than this (bytes).  Set to 0 if don't want limits
+#
+# 10,000,000 ~ 10 MegaBytes
+# $copy_threshold = 10000000;
+$copy_threshold = 0;
+
+#
+#  Where all the files go (relative to $DATA)
+#
+$conf_vault   = "conf_vault";
+$user_vault   = "user_vault";
+
+#
+#  what files do we want in there?
+#
+
+# $conf_pattern = "\.cf\$";
+
+$conf_pattern = "\\.cf\$|\\.conf\$|\\.config\$|\\.allow\$|\\.deny\$|\\.dir\$|\\.pag\$|\\.rc\$|log\$|^core\$|^corefile\$|history";
+
+#
+# copy all these files to safety as well...
+#
+$save_these_files = "$CONFIG/save_these_files";
+
+#
+# shouldn't be moving around too much...
+#
+$etc_crontab = "$CORPSE/etc/crontab";
+
+# by any chance is this different...?
+$DEVICE_DIR = "$CORPSE/dev";
+
+#
+#  Do we want to use getpwent() to get the password entries, or read
+# them out of files ourselves?  A non-zero means the former, and unless
+# causes problems, use that.
+#
+$getpwent = 1;
+
+# don't want to suck in network stuff on a corpse!
+$has_yp = 0 if $CORPSE;
+
+$PASSWD = "$CORPSE/etc/passwd";
+$GROUP = "$CORPSE/etc/group";
+
+if ($CORPSE) {
+        @GET_PASSWD = ($CAT, $PASSWD);
+        }
+
+#
+# our lastcomm uses these args for maximum data sucking
+#
+@LASTCOMM_ARGS = ("-c", "-E", "-s", "-u", "-S");
+
+#
+# what user files have any trust info?
+#
+@user_trust_files = (
+	".forward",
+	".rhosts",
+	".*history*",
+	".pgp/*",
+	".ssh/*",
+	".ssh*/*",
+	);
+
+# by default suck up subdirs...
+$recursion = 1;
+
+#
+#  Do we follow symlinks in the tree walk?
+#
+$follow_dir_sym_links = 0;
+
+#
+#  Do we follow symlinks to copy files in the tree walk?
+#
+$follow_file_sym_links = 1;
+
+#
+#  Do we follow NFS in the tree walk?  (Not implemented yet)
+#
+$follow_NFS = 0;
+
+#
+#  Typical system paths to the various binaries that are running could
+# be living... not used right now.
+#
+@system_paths = (
+	"$CORPSE/bin",
+	"$CORPSE/usr/bin",
+	"$CORPSE/usr/lib",
+	"$CORPSE/usr/ucb",
+	"$CORPSE/etc",
+	"$CORPSE/usr/etc",
+	"$CORPSE/usr/openwin/bin",
+	"$CORPSE/usr/openwin/bin/xview",
+	"$CORPSE/usr/local/bin",
+	"$CORPSE/");
+
+#
+#  Where the "strings -3 dirname" is kept
+#
+$strings_log = "strings_log";
+
+#
+# What tools/files do we want to investigate immediately?
+#
+$toolkit = "$CONFIG/look\@first";
+
+#
+#  I think BSD ps returns >= 12 fields (after header) when you do a ps -auxwwge
+#
+$magic_ps_fields = 12;
+
+#
+# sun/unix(?) doesn't reallocate these to users... do they?
+$low_pid = 100;
+
+#
+# programs that are typically fired up by system, not users.  Give it
+# some !0 value so we can do a simple if.  Currently not used.
+#
+%no_ttys = (
+	"(biod)", 1,
+	"cron", 1,
+	"dhcpd", 1,
+	"fingerd", 1,
+	"httpd", 1,
+	"inetd", 1,
+	"init", 1,
+	"keyserv", 1,
+	"named", 1,
+	"pagedaemon", 1,
+	"popd", 1,
+	"popper", 1,
+	"portmap", 1,
+	"sshd", 1,
+	"swapper", 1,
+	"syslogd", 1,
+	"ypbind", 1,
+	"ypserv", 1,
+	"ypxfrd", 1);
+
+1;

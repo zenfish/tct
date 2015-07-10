@@ -1,0 +1,80 @@
+
+Installation instructions and requirements for The Coroner's Toolkit (TCT).
+
+   ***                                                            ***
+   ***                                                            ***
+   *** TCT requires that the system have a working C compiler and ***
+   *** perl, version 5.0004 or later.  The lsof utility is HIGHLY ***
+   *** recommended.                                               ***
+   ***                                                            ***
+   ***                                                            ***
+
+TCT is meant to be run from its own directory - efforts to move individual
+files to various locations (/usr/local/bin or wherever) is left as an
+excercise for the reader. If you do so, be aware that the file(1)
+command has a non-standard path for the magic file wired into it.
+
+Installation is therefore simple - find a location that has room -
+preferably *lots* of room, as several of the tools in the toolkit can
+generate *lots* of data (especially unrm/lazarus) and untar the thing.
+
+   ***                                                              ***
+   ***                                                              ***
+   ***  At least several megabytes of storage is required for the   ***
+   *** TCT output, but it can easily consume 100 MB or more.  And   ***
+   *** the unrm tool (which is not run from the main program, for   ***
+   *** what will be obvious reasons) can consume *twice* as much    ***
+   *** space as the unallocated (or free) space on a disk - easily  ***
+   *** many *GB*'s (or more!) of data.  Be cautious and don't run   ***
+   *** out of space!  It will help to practice on various systems   ***
+   *** to get a feel for how much room it will consume.             ***
+   ***                                                              ***
+   ***                                                              ***
+
+
+Currently the following OS's are at least semi-supported (e.g. the more 
+recent versions (as of this writing, June 24, 2000) of the OS should work):
+
+  FreeBSD 2-4.*
+  OpenBSD 2.*
+   BSD/OS 2-4.*
+    SunOS 4-5.*
+    Linux 2.*
+
+
+The Actual Install
+-------------------
+
+The Makefile should automatically do the right thing.  Simply type:
+
+	make
+
+Don't be too alarmed by any files that it says it can't find - unless 
+it's something major, like perl (!) - it is attempting to find everything 
+that it could possibly use for any operating system the package supports.
+
+At this point, if all has gone well, you can start using the toolkit.
+Most of the useful tools/binaries are in the "bin" directory.  You might
+read the "README" file in the "doc" directory for more instructions
+on how to use this toolkit (or the "quick-start" mini doc for starting
+very quickly).  Individual utilities all have manual pages in appropriate
+subdirectories located within the "man" directory.
+
+Additional commands, not yet used by the toolkit software, can be
+found in the "extras" directory. Manual pages are in the directories
+with the source code of the respective commands.
+
+
+Reinstalling
+-------------
+
+For security reasons TCT uses full path names.  If you're reinstalling
+it or have moved it around you'll want to run the "reconfig" program again;
+simply type:
+
+	perl reconfig
+
+And it should do the rest.  If you're going to a completely different
+architecture you'll also want to do a "make clean" (removes all binaries)
+or "make tidy" (removes binaries *AND* data files).
+

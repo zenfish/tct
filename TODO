@@ -1,0 +1,129 @@
+
+This is a list of things that we're either working on or should be done.
+If you have source code that does any of these and are interested in
+giving it to us, please contact us!  (Warning - some are rather cryptic 
+notes to ourselves while others are more complete).
+
+---------- for the next release -------------------
+
+Split TCT into two parts, analysis and data gathering, to minimize
+the footprint of the data collection tools on a system
+
+Minimize the ways that we disturb the system; possibilities include:
+
+	Mounting from NFS or CD-ROM solution
+
+	Precompiled binaries for all supported systems (if not static,
+	include libraries)
+
+---------- the timeline tool ----------------------
+
+This is the biggest thing to be added next; taking lots of data from
+various tools and constructing a visual timeline.  Real soon now.
+
+Also, various data gathering and parsing tools will be added.  Currently
+they don't do much good so we didn't put them in.
+
+---------- Miscellaneous notes --------------------
+
+crash - do various crash commands for suns
+
+> A tool to extract utmp, wtmp, utmpx and wtmpx data that grabs ALL of the
+> content of these files and dumps to man readable format.  I.e. a modified
+> last command.
+
+what if intruder mucks with /dev/null - will anything change?
+
+want to make sure password/group maps are dumped, even if from net
+
+Need better code for grabbing trust by windowing systems... currently
+	just use xhost/xauth, should really go into configs or other stuff
+
+Need to clean up the index.html in the 'vault, sort it and make it
+	more readable.
+
+Need to parse more disk stuff... find out what disks on system, etc.
+
+Figure out host -
+	subnet/netmask?
+	link layer (Ethernet, token ring, FDDI, serial line, etc.)
+	mtu
+	name services
+	what windowing systems used, available
+
+SNMP
+
+scsicmd - useful?
+
+figure out where swap is?
+
+Idea - maybe copy (with a tool?) all the programs used in tct to a 
+	secondary place (/home/zen/foo) & use them when running it?
+	Intruders could be messing with the programs in the toolkit,
+	might add additional security... or not...
+
+Correlation tool for post processing lazarus output
+
+options for lazarus - different ways of display in config file,
+	program for changing a current HTML database
+
+Additional tool - print hidden partitions, those mounted over partitions,
+	unused disks, etc.
+
+Have an "ignore NFS FS" option in grave-robber
+
+Check for sniffing running on system (l0pht and other work).
+
+C-source diffs for time stamped shell/script()
+C-source diffs for additional bind syslog'ing
+
+Need to put in a portable way of dumping bind's database... basically
+	need a way to find bind's pid, send a kill -SIGINT, find the database
+	that comes out, and save that.
+
+"freezing"/grave-robber notes or additional programs:
+	make console screen dump
+	run whatever command that captures hardware configuration
+	(prtconf for solaris, devinfo for sunos, and so on).
+
+Do recognition on inside of compressed/zipped files...?
+
+Also look into lastcomm output suckers
+
+Fix suck_removed_files to really parse tm format rather than the hack
+	that it currently uses
+
+Fix situation with multiple entries in body file... what to do?
+	Currently I'm taking the first; it should probably be last.
+
+In grave-robber documentation, ensure that I cover:
+        also saves copy of suid & sgid files in body.S file.
+
+---------- issue file system damaged? -------------
+
+Something to consider:  if the file system is damaged, for
+example, it has a hard-linked directory, the grave robber
+should somehow not go into a loop.  You can't run fsck before 
+sampling the file system; fsck can't be run safely in multi-user mode.
+
+Simple proposed fix: remember device+inode of each directory visited.
+It stops you from looping when a/foo/bar is a hard link to a. But it
+also stops you from entering whole directory tree in other cases
+(a/foo hard linked to b/bar: if a/foo is visted first, b/bar will
+be skipped).
+
+----------- Revive the "fuck" tool ----------------
+
+Fuck was a tool that attempted to determine what, if anything, had
+changed in a system since its installation.  This would be very useful
+in conjunction with the grave-robbing tool.
+
+Also, make sure that strings on dirs are done; comparing the system's
+with the CD would be very cool.
+
+---------------------------------------------------
+
+On some systems su loses if the current directory is not accessible.
+Perhaps grave-robber could chdir to /tmp permanently. If is using
+absolute pathnames for everything.
+

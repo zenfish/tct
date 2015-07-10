@@ -1,0 +1,136 @@
+.TH MACTIME 1
+.SH NAME
+.B mactime - "an mtime, atime, and ctime reporter"
+.SH SYNOPSIS
+.B mactime
+[
+.B \-DfhlnRsty
+[
+.B \-d directory
+]
+[
+.B \-g group
+]
+[
+.B \-p passwd
+]
+[
+.B \-u user
+]
+[
+.B \-b bodyfile
+]
+time1
+[
+.B -time2
+]
+.SH DESCRIPTION
+.I mactime
+is a program that attempts to determine what files 
+were accessed or modified within a given time frame.
+The information is either calculated on the fly (with the
+-d flag) or taken from an already calculated database; see 
+the program 
+.I grave-robber)
+.PP
+Format of the time is typically month/date/year - e.g. 4/5/2009.
+It requires a full four digit year, and the date must be after 1/1/1970.
+.PP
+.I Time2
+is a date that should be after 
+.I time1;
+it makes the program look for dates in this range.
+
+.SH OPTIONS
+.TP 8
+.B \-b file
+use this file as an alternate "body" file (the file that
+has all the information about the file system), instead of what
+is configured in coroner.cf.
+
+.TP 8
+.B \-d
+directory.  Scans and reports on this directory instead of using the
+existing database; e.g. does NOT use the existing body database file.
+
+.TP 8
+.B \-D
+debugging flag.  Lots and lots of output.  You don't want this!
+
+.TP 8
+.B \-f filename
+flag files listed in file as a different color (HTML only).
+
+.TP 8
+.B \-g group
+uses an alternate group file for printing groups.
+
+.TP 8
+.B \-h
+emit some simple HTML stuff rather than plain ASCII text.
+
+.TP 8
+.B \-l
+takes "last" output, sort of, as a time.  Last looks like:
+
+	zen       ttyp2    random.trouble.o Sat Mar 21 16:24 - 11:43  (19:19)
+
+	This program wants everything from the date on; in this case, the:
+	"Sat Mar 21 16:24 - 11:43  (19:19)" bit.  Note that it calculates 
+	the time the user was on from the parenthesized time, not the time 
+	after the "-", which doesn't do multiple days, etc. very well.
+	It doesn't understand certain things  like "still logged in":
+
+	zen       ftp      208.197.253.142  Sun Mar 22 13:49   still logged in
+
+	And other valid last entries from last(1).
+
+.TP 8
+.B \-n
+takes normal "date" output, which looks something like:
+	"Tue Apr  7 17:20:43 PDT 1998"
+
+.TP 8
+.B \-p passwd
+uses an alternate password file for printing uids.
+
+.TP 8
+.B \-R
+recursively go through subdirectories (only useful with the -d flag)
+
+.TP 8
+.B \-s
+flag SUID/SGID files as a different color (HTML only).
+
+.TP 8
+.B \-t
+output in time machine format
+
+.TP 8
+.B \-y
+Print year first to avoid euro/US data ambiguity - normally stuff
+is MM/DD/YYYY, this does YYYY/MM/DD.
+
+.TP 8
+.B \-u user
+flag files owned by user as a different color (HTML only).
+
+.SH FILES
+.I coroner.cf
+- some global TCT defaults and configuration details 
+(is perl executable code).
+
+.SH "SEE ALSO"
+.BR grave-robber (1),
+.BR stat (2V)
+.SH LICENSE
+Distributed under the details found in the
+.I COPYRIGHT
+file found in the root directory of The Coroner's Toolkit.
+.SH AUTHOR(S)
+.na
+.nf
+dan farmer
+zen@fish.com
+EarthLink
+

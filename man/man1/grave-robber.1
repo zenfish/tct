@@ -1,0 +1,255 @@
+.TH GRAVE-ROBBER 1
+.SH NAME
+.B grave-robber - capture system forensic data
+.SH SYNOPSIS
+.B grave-robber
+[
+.B \-filmnpstvDEFIMOPVS
+]
+[
+.B \-b body_file
+]
+[
+.B \-c corpse_dir
+]
+[
+.B \-d data_directory
+]
+[
+.B \-e error_file
+]
+[
+.B \-o os_type
+]
+[
+.B directory_name(s)
+]
+.SH DESCRIPTION
+.I grave-robber
+runs many sub-programs in an attempt to capture forensic information
+about a Unix system.  It captures process and network information, as
+well as gathering data from the directory and all its subdirectories 
+passed as a command line argument (defaulting to the root directory 
+(`/') if no directories are specified.)  It may be run by any user,
+but note that many of the programs it runs require privileged access.
+
+.PP
+It roughly captures data according to the Order of Volatility; the OOV
+roughly says that certain data is more volatile or ephemeral than other
+types (memory vs. disk, for instance); generally speaking you want to 
+capture the most volatile information before it goes away.  However, since
+any queries of the system risk disturbing other potentially valuable data
+one must be careful.  And while it impossible to automate this perfectly,
+the grave-robber can be a useful way of automating the process.
+.PP
+The results are saved in the directory $DATA (the value of which is
+found in the
+.I coroner.cf
+file), with each subprogram saving its output to a separate file.
+.PP
+.SH OPTIONS
+.PP
+There are three main types of options - general, micro data collection,
+and macro data collection.  The general options control basic things
+such as where output goes, program verbosity, etc.  The micro data collection
+flags allow finer grained control over what sort of data gets collected -
+MACtimes, process information, etc.  The macro data collection flags group
+the micro data collection flags into logical groups.
+
+.SH General Options
+.TP 8
+.B \-b body_file
+The grave robber will write lstat and md5 information to this bodyfile 
+instead of the default ($TCT_HOME/data/hostname/body).
+.TP 8
+.B \-c corpse_dir
+A dead, not live, system (such as a mounted disk.)  Prepend all stuff 
+with corpse_dir... e.g. -c
+.I /foo
+would make it look in 
+.I /foo/etc/passwd 
+for the passwd file, etc.  This also REQUIRES the -o flag.  Implies the
+.B \-l
+option.
+.TP 8
+.B \-d datadir
+Specify the data directory; this overrides the $DATA/hostname default.
+All forensic information captured goes into a subdirectory of this 
+directory.  This subdirectory is formed by concatenating the hostname 
+the 
+.I grave-robber
+was run from and the date the program was executed.
+.TP 8
+.B \-e errorfile
+The file to redirect the stderr stream to.
+.TP 8
+.B \-o os_type
+To be used with the -c flag, this tells the grave-robber
+what sort of corpse you have.  Acceptable values include
+\fB`FREEBSD2'\fR,
+\fB`FREEBSD3'\fR,
+\fB`OPENBSD2'\fR,
+\fB`OPENBSD3'\fR,
+\fB`OPENBSD4'\fR,
+\fB`BSDI2'\fR,
+\fB`BSDI3'\fR,
+\fB`SUNOS4'\fR,
+\fB`SUNOS5'\fR,
+and \fB`LINUX2'\fR.
+.TP 8
+.B \-v
+Verbose; lots of output to stdout that attempts to give some idea of what
+the program is doing at any given time.
+.TP 8
+.B \-D
+debug - print *lots* of output.  Usually not desired.
+
+.SH Macro Data Collection
+.TP 8
+.B \-E
+This collects everything that it can, including dangerous
+operations like 
+.I pcat.
+Currently this only adds -I and -p to the default.
+.TP 8
+.B \-f
+Fast/quick capture - try to avoid the file system; no MD5's, lstat(),  or
+other very expensive data grabbing.  It doesn't make sense with the -m 
+option.  Implies -O, -P, & -s.
+.TP 8
+.B \-n
+The default flag - if neither -E, -f, or any of the other data options 
+are chosen, then the
+.B \-i,
+.B \-m,
+.B \-M,
+.B \-P,
+.B \-s,
+.B \-t,
+.B \-l,
+.B \-I,
+.B \-O,
+.B \-F,
+.B \-S,
+and
+.B \-V
+flags are set.
+.SH Micro Data Collection
+.TP 8
+.B \-F
+collect files from the file system as the file
+walking moves through.  Copies things from the
+$conf_pattern variable (set in 
+.I coroner.cf,
+and usually including REGEXPs like "*.cf", "*.conf", etc.)
+Implies 
+.B -m
+(lstats() are done by the file walking anyway, so we save that information)
+.TP 8
+.B \-i
+collect inode data from the unallocated area of the file systems.  Requires
+read access to the device in question.
+.TP 8
+.B \-I
+capture the executable files of running process.  First try copying
+the executable file using information found in /proc, then try to use
+icat with inode information that was obtained from lsof.  Requires
+a live system.
+.TP 8
+.B \-l
+Before gathering the requested information, lstat() all files and
+directories listed in the user's $PATH variable, listed in the
+look@first file, and below the $TCT_HOME directory.  Requires a
+live system.
+.TP 8
+.B \-M
+do md5's of files - implies 
+.B -m
+(lstats() are done anyway, so we save them)
+.TP 8
+.B \-m
+gather lstat() results for the 
+.I mactime
+program.
+.TP 8
+.B \-O
+save files that are open but have been deleted from
+the disk (often config files, executables, etc.)
+Requires read access to the device in question.
+.TP 8
+.B \-p
+Copy process memory to file with the
+.I pcat
+command.  WARNING - some systems have significant trouble with this!
+Be sure to test this first before using it in a crisis.  Requires root
+access to capture processes owned by other users, as well as a live system.
+.TP 8
+.B \-P
+run the process commands - 
+.I ps,
+.I lsof,
+.I icat
+- to get data on running processes and to make copies of their
+executable files.  Requires a live system for many of the commands.
+The
+.I icat
+command requires privileges and is used only on systems where the
+executable file cannot be accessed through the /proc file system.
+.TP 8
+.B \-S
+save files listed in the 
+.I save_these_files
+configuration file.
+.TP 8
+.B \-s
+run the general Shell commands on the host; this 
+includes network & host info gathering, such as
+.I netstat,
+.I df,
+etc.  This doesn't include process (
+.I ps,
+.I lsof,
+etc. commands (see the
+.B \-P
+flag for that.  Many require a live system.
+.TP 8
+.B \-t
+gather trust information from both the host and users.  This includes
+hosts.equiv files, .rhosts, xhosts, etc.
+.TP 8
+.B \-V
+do some mucking around in dev (deV? - Out of letters!), mostly getting
+major & minor numbers for devices.
+.PP
+.SH ENVIRONMENT
+TCT_HOME, location of grave-robber software and configuration files.
+.PP
+.SH FILES
+.I grave-robber.cf
+the main configuration file
+(is perl executable code).
+.br
+.I coroner.cf
+some global TCT defaults and configuration details 
+(is perl executable code).
+.br
+.I look@first
+files that are stashed away when the -L option is chosen.
+.SH "SEE ALSO"
+.BR mactime (1)
+.BR ils (1)
+.BR pcat (1)
+.BR icat (1)
+.BR coroner.cf
+.BR look@first
+.BR lazarus.README
+.SH LICENSE
+Distributed under the details found in the
+.I COPYRIGHT
+file found in the root directory of The Coroner's Toolkit.
+.SH AUTHOR(S)
+.na
+.nf
+dan farmer
+zen@fish.com
+EarthLink

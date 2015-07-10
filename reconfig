@@ -1,0 +1,191 @@
+#
+# Sun Jul 16 17:39:11 PDT 2000
+#
+exec perl reconfig
+	if "";
+
+#  Usage: [perl] reconfig [file]
+#
+#    This assigns the program variables (e.g. $AWK) in conf/paths.*
+# their actual values.  It also finds perl5 (or at least tries!) and
+# changes #!/path/to/perl in all the stand-alone perl programs.
+#
+#  This is a holdover from satan and a stupid hack.  But it works.  
+# We're not sure why it's still around, it should be fixed, but we'll get 
+# to it eventually.  So much code to write, so little time...
+#
+
+#
+#  Potential directories to find commands; first, find the user's path...
+$PATH = $ENV{"PATH"};
+
+# additional dirs; *COLON* separated!
+$other_dirs="bin:/etc:/usr/ccs/bin:/bin:/usr/bin:/usr/ucb:/usr/bsd:/usr/ucb/bin:/sbin:/usr/sbin:/usr/etc:/usr/local/bin:/usr/local/sbin:/usr/X11R6/bin:/usr/bin/X11:/usr/X11/bin:/usr/openwin/bin";
+
+#
+# split into a more reasonable format. Personal aliases come last.
+@all_dirs = split(/:/, $other_dirs . ":" . $PATH);
+
+#
+#  Target shell scripts in question:
+@shell_scripts=("conf/paths.pl");
+@perl5_src = <bin/mactime bin/grave-robber lazarus/lazarus bin/strip_tct_home extras/bdf extras/ils2mac extras/realpath>;
+
+#
+#  Target shell commands in question
+@all_commands=("acctcom", "arp", "awk", "at", "basename", "cat", "chmod",
+	"cmp", "comm", "cp", "crontab", "date", "devinfo", "df", "diff",
+	"dmesg", "domainname", "echo", "eeprom", "egrep", "expr", "finger",
+	"find", "ftp", "format", "ifconfig", "ipcs", "last", "ls", "lsof",
+	"lsmod", "modinfo", "modstat",
+	"mkdir", "mv", "netstat", "nfsstat", "nslookup", "pkginfo", "ping",
+	"ps", "pstat", "pwd", "rm", "rpm", "rpcinfo", "rusers", "sed", "sh",
+	"showmount", "showrev", "sort", "strings", "su", "swap", "sync",
+	"test", "top", "touch", "uname", "uniq", "uudecode", "uptime",
+	"w", "who", "whoami", "xhost", "xauth", "ypcat", "ypwhich");
+
+print "checking to make sure all the target(s) are here...\n";
+
+for (@shell_scripts) {
+	die "ERROR -- $_ not found!\n" unless -f $_;
+	}
+
+# find perl5!
+print "Ok, trying to find perl5 now... hang on a bit...\n";
+for $dir (@all_dirs) {
+	# first, find where it might be; oftentimes you'll see perl,
+	# perl4, perl5, etc. in the same dir
+	next if (! -d $dir);
+	while (<$dir/perl5* $dir/perl*>) {
+		if (-x $_) {
+			$perl_version=`($_ -v 2> /dev/null) |
+				awk '/This is perl, v.*5/ { print $NF }'`;
+			if ($perl_version) {
+				$PERL=$_;
+				$pflag="1";
+				last;
+				}
+			}
+			last if $pflag;
+		}
+	last if $pflag;
+	}
+
+die "\nCan't find perl5!  Bailing out...\n" unless $PERL;
+print "\nPerl5 is in $PERL\n";
+
+# we need version 5.003 or better... or do we?  Nuke this for now
+# system "$PERL -e \'require 5.003;\'";
+# 
+# die "Requires perl version 5.003 or better!\n" if ($?);
+
+for (@perl5_src) { $perl5_src .= "$_ "; }
+print "\nchanging the source in: $perl5_src\n";
+system "$PERL -pi -e \"s@^#!.*/perl.*@#!$PERL@;\" $perl5_src";
+
+# make sure things are executable...
+system("chmod +x $perl5_src");
+ 
+print "\nSo far so good...\nLooking for all the commands now...\n";
+
+for $command (@all_commands) {
+	$found="";
+	for $dir (@all_dirs) {
+		# special case rsh/remsh; if we can find remsh, ignore rsh
+		if ($command eq "rsh") {
+			# print "looking for rsh/remsh ($dir/$command)\n";
+			if (-x "$dir/remsh") {
+				# this converts to upper case
+				($upper = $command) =~ y/[a-z]/[A-Z]/;
+				$found="true";
+				$upper{$upper} = "$dir/remsh";
+				print "found $dir/remsh; using this instead of rsh\n";
+				last;
+				}
+			}
+
+		# if find the command in one of the directories, print string
+		if (-x "$dir/$command") {
+			# this converts to upper case
+			($upper = $command) =~ y/[a-z]/[A-Z]/;
+			$found="true";
+			$upper{$upper} = "$dir/$command";
+			# print "found ($upper) $dir/$command\n";
+
+			# if it's rsh we're examining, keep looking; else quit
+			last unless $command eq "rsh";
+			}
+		}
+	print "\nHmmm... can't find $command... moving on...\n" unless $found;
+	}
+
+print "\nOk, now doing substitutions on the shell scripts...\n";
+for $shell (@shell_scripts) {
+ 	print "Changing paths in $shell...\n";
+	die "Can't open $shell\n" unless open(SCRIPT, $shell);
+	rename($shell, $shell . '.old');
+	die "Can't open $shell\n" unless open(OUT, ">$shell");
+
+	#
+	#  Open up the script, search for lines beginning with
+	# stuff like "TEST", "AWK", etc.  If the file ends in "pl",
+	# assume it's a perl script and change it accordingly
+	while (<SCRIPT>) {
+		$found = 0;
+		for $command (keys %upper) {
+			if(/^\$?$command\s*=/) {
+				# shell script
+				if ($shell !~ /.pl$/) {
+					print OUT "$command=$upper{$command}\n";
+					}
+				# perl script
+				else {
+					print OUT "\$" . "$command=\"$upper{$command}\";\n";
+					}
+				$found = 1;
+				}
+			}
+		print OUT $_ if !$found;
+		}
+	close(SCRIPT);
+	close(OUT);
+	}
+
+# now manually insert the TCT_HOME var into these files...
+@files2reconfig = ("lazarus/lazarus","conf/coroner.cf","conf/grave-robber.cf",
+		   "bin/grave-robber","bin/mactime", "extras/bdf",
+		   "extras/ils2mac", "extras/realpath");
+
+# where are we now?
+chop($cwd = `pwd`);
+
+# a few small files; suck them in, change in memory, overwrite the old one
+for $file (@files2reconfig) {
+
+	$seen = $n = $done = 0;
+
+	die "Can't open $file for reading\n" unless open(FILE, $file);
+	while (<FILE>) {
+		if (/^\s*\$TCT_HOME\s*=/ && !$done) {
+			$file{$n++} = "\$TCT_HOME = \"$cwd\";\n";
+			$done = 1;
+			next;
+			}
+		$file{$n++} = $_;
+		}
+	close(FILE);
+
+	next if !$done;
+
+	# print the new version
+	die "Can't open $file for writing\n" unless open(FILE, ">$file");
+
+	print "Putting in \$TCT_HOME into $file\n";
+
+	for ($i = 0; $i < $n; $i++) {
+		print FILE $file{$i};
+		}
+	close(FILE);
+	}
+
+# done...

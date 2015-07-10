@@ -1,0 +1,103 @@
+#!/usr/bin/perl5
+
+#
+# Take a stream of time machine formatted data from ils and re-arrange
+# the fields into the fixed order that mactime expects.
+#
+# This program should not be necessary. Mactime next generation should
+# understand time machine format instead of just pretending it does.
+#
+# Kludge: if the first line is not in time machine format assume that
+# we're looking at output from the grave-robber which prepends a date
+# line of its own (which is gross because time machine data already
+# contains a time stamp, and the obvious fix is to fix grave-robber).
+#	
+
+$debug = 0;
+$running_under_grave_robber = 1;
+
+$TCT_HOME = "";
+require "$TCT_HOME/conf/coroner.cf";
+require "tm_misc.pl";
+require "hostname.pl";
+require "crunch.pl";
+
+#
+# Read the time machine origin records (host, time, etc.).
+# Skip over grave robber thrash.
+#
+chop($line = <>);
+chop($line = <>) if ($line !~ /class/);
+(@origin_in_labels = &tm_split($line))
+    || die "$ARGV: No origin dictionary record.\n";
+chop($line = <>);
+(@origin_in_fields = &tm_split($line))
+    || die "$ARGV: No origin data record.\n";
+($#origin_in_labels == $#origin_in_fields)
+    || die "$ARGV: Inconsistent origin field count ($#origin_in_labels $#origin_in_fields).\n";
+for (0..$#origin_in_labels) {
+    ${"f_$origin_in_labels[$_]"} = $origin_in_fields[$_];
+}
+$f_device = "disk" unless $f_device;
+print "class=$f_class host=$f_host device=$f_device start_time=$f_start_time\n"
+    if $debug;
+
+#
+# print out the TM header for a body file
+#
+&tm_print("class", "host", "device", "start_time");
+&tm_print("body", $f_host, $f_device, $f_start_time);
+
+#
+# Read the data dictionary with input field names and positions.
+#
+chop($line = <>);
+(@data_in_labels = &tm_split($line))
+    || die "$ARGV: No data dictionary record.\n";
+&tm_print("data_in_labels", @data_in_labels) if $debug;
+
+#
+# Set up the input/output field mapping.
+#
+@data_out_labels = ("md5", "file", "st_dev", "st_ino", "st_mode", "st_ls", "st_nlink", "st_uid", "st_gid", "st_rdev", "st_size", "st_atime", "st_mtime", "st_ctime", "st_blksize", "st_blocks");
+$file_out_field = 1;
+$ls_out_field = 5;
+
+&tm_print(@data_out_labels);
+
+for $name (@data_out_labels) {
+    $data_in_position{$name} = $#data_out_labels + 1;
+}
+for $offset (0..$#data_in_labels) {
+    $data_in_position{@data_in_labels[$offset]} = $offset;
+    print "data_in_position{@data_in_labels[$offset]} $offset\n" if $debug;
+}
+for $offset (0..$#data_out_labels) {
+    $data_mapping[$offset] = $data_in_position{$data_out_labels[$offset]};
+    print "output field $offset from input field $data_mapping[$offset] ($data_out_labels[$offset])\n" if $debug;
+}
+&tm_print("data_mapping", @data_mapping) if $debug;
+
+#
+# Copy the actual data, rearrange fields, and make up file names on the fly.
+#
+$ino_in_field = $data_in_position{"st_ino"};
+$alloc_in_field = $data_in_position{"st_alloc"};
+$mode_in_field = $data_in_position{"st_mode"};
+$f_device =~ s/.*\///;
+
+while (chop($line = <>)) {
+    @data_in_fields = &tm_split($line);
+    ($#data_in_labels == $#data_in_fields)
+	|| die "$ARGV: Inconsistent data field count: $line\n";
+    for $offset (0..$#data_out_labels) {
+	$data_out_fields[$offset] = $data_in_fields[$data_mapping[$offset]];
+    }
+    $data_out_fields[$ls_out_field] =
+	&faux_ls("", oct($data_in_fields[$mode_in_field]));
+    $data_out_fields[$file_out_field] = 
+	($data_in_fields[$alloc_in_field] eq "a" ?
+	    "<$f_device-live-$data_in_fields[$ino_in_field]>" :
+	    "<$f_device-dead-$data_in_fields[$ino_in_field]>");
+    &tm_print(@data_out_fields);
+}

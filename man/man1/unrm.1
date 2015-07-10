@@ -1,0 +1,67 @@
+.TH UNRM 1 
+.ad
+.fi
+.SH NAME
+unrm
+\-
+disk data recovery
+.SH SYNOPSIS
+.na
+.nf
+.ad
+.fi
+\fBunrm\fR [\fB-bevV\fR] [\fB-f \fIfstype\fR]
+\fIdevice\fR [\fIstart-stop\fR ...]
+.SH DESCRIPTION
+.ad
+.fi
+\fBunrm\fR opens the named \fIdevice\fR and copies data blocks.
+By default, \fBunrm\fR copies unallocated data blocks only.
+
+Arguments:
+.IP \fB-b\fR
+With file systems that have logical blocks that consist of fragments,
+don't insert null-byte padding to preserve logical block alignment
+in the output.
+This option is a no-op with the LINUX ext2fs file system, where
+logical blocks and fragments have the same size.
+.IP \fB-e\fR
+Copy every block. The output should be similar to dd(1).
+.IP "\fB-f\fI fstype\fR"
+Specifies the file system type. The default file system type
+is system dependent. With most UNIX systems the default type
+is \fBufs\fR (Berkeley fast file system). With Linux the default
+type is \fBext2fs\fR (second extended file system).
+.IP \fB-v\fR
+Turn on verbose mode, output to stderr.
+.IP \fB-V\fR
+Turn on verbose mode, output to stdout.
+.IP \fIdevice\fR
+Disk special file, or regular file containing a disk image.
+On UNIX systems, raw mode disk access may give better performance
+than block mode disk access.  LINUX disk device drivers support
+only block mode disk access.
+.IP "\fIstart-stop\fR ..."
+Examine the specified block number or number range. Either the
+\fIstart\fR, the \fIstop\fR, or the \fI-stop\fR may be omitted.
+If \fB-b\fR is not specified, the start block must be
+aligned to a logical block boundary (e.g. a multiple of 8 in
+the case of an FFS file system). With the LINUX ext2fs file system,
+the start block number must be >= 1.
+.SH BUGS
+.ad
+.fi
+\fBunrm\fR should support more file system types. Right now, support
+is limited to \fBext2fs\fR when built on Linux, and \fBufs\fR when
+built on Solaris and BSD systems.
+.SH LICENSE
+.na
+.nf
+This software is distributed under the IBM Public License.
+.SH AUTHOR(S)
+.na
+.nf
+Wietse Venema
+IBM T.J. Watson Research
+P.O. Box 704
+Yorktown Heights, NY 10598, USA

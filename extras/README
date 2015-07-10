@@ -1,0 +1,24 @@
+
+This directory contains some additional programs we've been using in testing
+and analysis that you may or may not find useful.  The programs might
+be worked on, expanded, or included in a more active role in future packages.
+
+
+bdf	-  Basic Dependency Finder.  This rather odd thing goes through 
+	   text & binaries files recursively, looking for executables and 
+	   files of potential interest.  Try it on /etc/rc files and
+	   whatnot for a laugh.  Look at options and such in the comments
+	   at the top of the code.
+
+ils2mac -  This converts the output of the ils command to a "body" file
+	   database that mactime can use.  This is how we get mactimes
+	   for removed files.  You can concatenate it to a normal body
+	   file and look at the combined results for better understanding
+	   of system behavior.
+
+realpath - uses the realpath library to get the real path of a file
+	   (resolves links, etc.)
+
+findkey	-  Search data for cryptographic keys.
+
+entropy	-  Compute data entropy a la Shannon.

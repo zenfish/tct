@@ -1,0 +1,87 @@
+#
+# sets various parameters, etc., for the lazarus disk/binary recover/
+# inspection program
+#
+
+# where does all the data go?
+$blocks  = "$TCT_HOME/blocks";
+$www     = "$TCT_HOME/www";
+
+$BLOCK_SIZE = 4096;
+$BLOCK_SIZE = 1024;
+
+#
+#  This determines how many times letters get printed out in a run.
+# A setting of two means that the # of blocks in each character doubles
+# each time, a 3 would mean it tripled, etc.
+#
+$exponent = 2;
+
+#
+#  Handle this many bytes at a time, in byte mode
+#
+$how_many_bytes = 100;
+
+#
+# How many bytes do we need to recognize something as text?  We
+# use a threshold of $min_num_bytes * $threshold_pct of minimum
+# bytes to determine if a block can be reasonably thought of as
+# text...
+#
+$min_num_bytes = 100;
+
+$threshold_pct = .9;
+
+$months= "{Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec}";
+
+#
+# this is how wide the HTML will get before putting a break in
+#
+$screen_width = 80;
+
+#
+# colors... text types first, then binary.
+#
+
+# there are not enough letters... *sigh*...
+
+%char_colors = ( "t", "777777",	# gray			unresolved text
+	         "f", "ff0000",	# bright red (alarm)	sniffer stuff
+	         "m", "0066ff",	# blue			mail
+	         "q", "6633ff",	# pale blue		mailq files
+	         "s", "6699ff",	# purply		emacs/lisp
+	         "p", "cc6666",	# greenish		program file
+	         "c", "336666",	# green			C code
+	         "h", "ff99ff",	# light purple		HTML
+	         "w", "cc3333",	# reddish		password file
+	         "l", "cc9900",	# light brown		log file
+
+		 # binary stuff below
+	         ".", "000000",	# black			unresolved stuff
+	         "o", "bbbbbb",	# light grey		null block
+	         "r", "000000",	# black			removed'd block
+	         "x", "000000",	# black			binary exe
+	         "e", "d9d9i9",	# gold			ELF
+
+	         "i", "238e68",	# greenish		JPG/GIF
+
+	         "a", "d19275",	# black			archive - cpio/tar/etc.
+	         "z", "336633",	# greenish		compressed
+	         "!", "000000"	# black			audio
+	         );
+
+#
+# list all the binary types down here; used in the is_binary() function.
+#
+%is_binary = (	".", ".",
+		"o", "o",
+		"r", "r",
+		"x", "x",
+		"e", "e",
+		"i", "i",	#
+		"j", "j",	# these three are all image types
+		"g", "g",	#
+		"a", "a",
+		"z", "z",
+		"!", "!");
+

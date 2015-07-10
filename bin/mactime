@@ -1,0 +1,800 @@
+#!/usr/bin/perl5
+#
+#  A program that attempts to determine what files (taken from an already
+# calculated DB; see the file "body") were mucked with at a given time... 
+# probably to match when a user was logged in, but since logs get smashed, 
+# arbitrary times also.
+#
+#  Usage:
+#
+#	$0 [-DfhlnpRsty] [-d directory] [-g group] [-p passwd] [-u user] \
+#	   [-b bodyfile] time1[-time2] [-d directory]
+#
+# 	By default, use an easy to type user date... not much granularity.
+#	Format month/date/year - 4/5/1982 - full four digit year, for Y2K ;-)
+#	Of course, this will break in year 10,000, but hey!  (Actually it'll
+#	break if unix doesn't fix the... what is it, 2038 or so, problem?)
+#	I'll add min/sec later.  Also, year must be >= 1970.
+#
+#	Time2 is a date that should be after time1; it makes the program
+#	look for dates in this range.  Default is "now" if not present.
+#
+#  -b [file] - use this file as an alternate "body" file (the file that
+#	has all the information about the file system), instead of the
+#	default ($DATA/$body).
+#
+#  -B [file] - output the body to this file.  "-" is stdout, of course.
+#	only usable with the -d flag.
+#
+#  -d [directory] - specifies a particular directory to walk and
+#	report on.  This DOES NOT use the normal body database file.
+#
+#  -D - debugging flag.  Lots and lots of output.  You don't want this! 
+#
+#  -f [filename] - flag files listed in file as a different color (HTML only!)
+#
+#  -g  - uses an alternate group file for printing groups
+#
+#  -h  - emit some simple HTML stuff rather than plain ascii text.  
+#	Experimenting with some various outputs, right now very mild,
+#	just highlights the MAC column.  Can use the -f, -s & -u options 
+#	(see below) for more stuff.
+#
+#  -l  - takes "last" output, sort of, as a time.  Last looks like:
+#
+#	zen       ttyp2    random.trouble.o Sat Mar 21 16:24 - 11:43  (19:19)
+#
+#	This program wants everything from the date on; in this case, the:
+#	"Sat Mar 21 16:24 - 11:43  (19:19)" bit.  Note that it calculates 
+#	the time the user was on from the parenthesized time, not the time 
+#	after the "-", which doesn't do multiple days, etc. very well.
+#	It doesn't handle certain things well, like "still logged in":
+#
+#	zen       ftp      208.197.253.142  Sun Mar 22 13:49   still logged in
+#
+#	And other valid last entries.  So sue me.
+#
+#  -n  - takes normal "date" output, which looks something like 
+#	"Tue Apr  7 17:20:43 PDT 1998"
+#
+#  -p  - uses an alternate password file for printing uids
+#
+#  -R  - recursively go through subdirectories (only useful with the -d flag)
+#
+#  -s  - flag SUID/SGID files as a different color (HTML only!)
+#
+#  -t  - output in time machine format
+#
+#  -u [user] - flag files owned by user as a different color (HTML only!)
+#
+#  -v  - verbose
+#
+#  -y  - Print year first to avoid euro/US data ambiguity - normally stuff
+#	is MM/DD/YYYY, this does YYYY/MM/DD
+#
+#  I use this, from the SunOS stat (2V) man page, as a reference:
+#
+#  dev_t     st_dev;        /* device file resides on */
+#  ino_t     st_ino;        /* the file serial number */
+#  mode_t    st_mode;       /* file mode */
+#  nlink_t   st_nlink;      /* number of hard links to the file */
+#  uid_t     st_uid;        /* user ID of owner */
+#  gid_t     st_gid;        /* group ID of owner */
+#  dev_t     st_rdev;       /* the device identifier (special files only) */
+#  off_t     st_size;       /* total size of file, in bytes */
+#  time_t    st_atime;      /* file last access time */
+#  time_t    st_mtime;      /* file last modify time */
+#  time_t    st_ctime;      /* file last status change time */
+#  long      st_blksize;    /* preferred block size for file system I/O*/
+#  long      st_blocks;     /* actual number of blocks allocated */
+#
+#  atime, mtime, and ctime are the keys to this enchalada.
+#
+
+#
+# Workaround for setting @INC before "use" is called.
+#
+BEGIN {
+$running_under_grave_robber = 1;
+$TCT_HOME = "";
+require "$TCT_HOME/conf/coroner.cf";
+}
+
+require "body_init.pl";
+require "getopts.pl";
+require "tm_misc.pl";
+require "suck_table.pl";
+require "hostname.pl";
+require "tree.pl";
+require "crunch.pl";
+require "command.pl";
+use Date::Manip;
+
+# $time_difference = &gmt_vs_local();
+
+#
+#  the three time types
+#
+@time_bits = ("m", "a", "c");
+
+%month_to_digit = ("Jan", 1, "Feb", 2, "Mar", 3, "Apr", 4, "May", 5, "Jun", 6,
+	"Jul", 7, "Aug", 8, "Sep", 9, "Oct", 10, "Nov", 11, "Dec", 12);
+%digit_to_month = ("01", "Jan", "02", "Feb", "03", "Mar", "04", "Apr", "05", 
+	"May", "06", "Jun", "07", "Jul", "08", "Aug", "09", "Sep", "10", 
+	"Oct", "11", "Nov", "12", "Dec");
+
+#
+#  need to get the year...
+#
+chop($_ = &command_to_string($DATE));
+
+# Fri Jun 11 09:43:23 PDT 1999
+($year) = /^\S+\s+\S+\s+\S+\s+\S+\s.*\s+(\d\d\d\d)$/;
+
+#
+#
+# Use the program!
+#
+#
+$usage = "usage: $0 [-DfhlnpRst] [-B:b:d:f:g:p:u:] time[-time2]";
+
+chop($hostname = &'hostname);
+
+&Getopts("DfhlnRstvyB:b:d:f:g:p:u:") || die $usage;
+
+if ($opt_d) { $directory = $opt_d; }
+if ($opt_D) { $debug = 1; }
+if ($opt_f) { $mac_files = $opt_f;}
+if ($opt_l) { $last = 1; }
+if ($opt_n) { $date_norm = 1; }
+if ($opt_h) { $html = 1; }
+
+if ($opt_b) { $body = $opt_b; }
+else {
+	if (!$opt_d) { $body = "$TCT_HOME/data/$hostname/body"; }
+	else         { $body = "tmp.mactime.$$"; }
+	}
+
+# requires the -d flag
+if ($opt_B) {
+	die "The -B flag requires the -d flag\n" if (!$opt_d);
+	$body_out = $opt_B;
+	}
+
+if ($opt_R) { $recursion = 1; }
+else        { $recursion = 0; }
+
+if ($opt_s) { $flag_suid = 1; }
+if ($opt_t) { $time_machine = 1; }
+if ($opt_u) { $s_user = $opt_u; }
+if ($opt_v) { $verbose = 1; }
+if ($opt_y) { $year_first = 1; }
+
+if ($opt_g) { $GROUP = $opt_g; }
+else { $GROUP = "/etc/group"; }
+
+if ($opt_p) { $PASSWD = $opt_p; }
+else { $PASSWD = "/etc/passwd"; }
+
+require "pass.cache.pl";
+
+# Load the password stuff
+&'load_passwd_info(0,$PASSWD);
+&'load_group_info(0,$GROUP);
+
+$user_date = 1 if (!$opt_l && !$opt_n);
+
+# die "$usage\n" if ($#ARGV != 1 || $#ARGV > 2);
+
+die "$usage\n" if ($#ARGV != 0);
+
+#
+#  Get the times from the command arg line, start mucking with it
+#
+$time_one = $ARGV[0];
+
+# a range of times are divided by 
+if (!$last && $time_one =~ /-/) {
+	print "splitting date ($time_one)...\n" if $debug;
+	($time_one, $time_two) = split(/-/, $time_one);
+	}
+
+#
+#   We take the "last" output and insert the year in there,
+# so the date functions will work, so something like:
+#
+# Sat Feb 21 03:01 - 12:38 (2+09:36)
+#
+#   Turns into:
+#
+# Sat Feb 21 1998 03:01 - 12:38 (2+09:36)
+
+#
+print "TIME 1: $time_one\n" if $debug;
+print "TIME 2: $time_two\n" if $debug;
+
+#
+# Time machine header
+#
+if ($opt_t) {
+	&tm_print("class", "host");
+	&tm_print("mactime", $hostname, "\n");
+	&tm_print("time", "size", "mactime", "ls", "uids", "groups", "file");
+	}
+
+#
+# start the printing o' html...
+#
+if ($html) {
+
+&read_mac_search() if $mac_files;
+
+print<<_EOH_;
+
+<html>
+<title>MAC times</title>
+<body BGCOLOR="FFFFFF">
+<tt>
+<p>
+<pre>
+_EOH_
+
+	}
+
+
+#
+# if getting the time from the "last" command:
+#
+if ($last) {
+	$time_one =~ s/^\s*(\S+)\s+(\S+)\s+(\S+)\s+(.*$)/$1 $2 $3 $year $4/;
+
+	print "AFTER: $time_one\n" if $debug;
+
+	# $time_one = "Sat Feb 21 1998 03:01 - 12:38 (2+09:36)";
+
+	#
+	# Get the time logged in:
+	#
+	($dow_in, $mon_in, $day_in, $year_in, $t_in, $x, $t_out, $elapsed) =
+		split(/\s+/, $time_one);
+	
+	print "(!$dow_in || !$mon_in || !$day_in || !$year_in || !$t_in || !$x || !$t_out || !$elapsed)\n" if $debug;
+
+	die "\nInvalid date format for \"last\"-style input:\n\n\t$time_one\n\n"
+		if (!$dow_in || !$mon_in || !$day_in || !$year_in || 
+		    !$t_in || !$x || !$t_out || !$elapsed);
+
+	($h,$m) = split(/:/, $t_in);
+
+	#
+	# Calculate the time logged out:
+	#
+	# Sat Feb 21 03:01 - 12:38 (2+09:36)
+	print "Logged out: $t_out @@@ $elapsed\n" if $debug;
+
+	($days_out, $h_out, $m_out) = ($elapsed =~ /\((\d*)\+?(\d+):(\d+)\)/);
+	print "\tOUT: $days_out, $h_out, $m_out\n" if $debug;
+
+	#
+	# want something like: Sat Feb 21 1998 03:01
+	$date_in = "$mon_in $day_in $year_in $h:$m";
+	print "Date in $date_in\n" if $debug;
+
+	#
+	# Add to it the length of time logged on... sort of cumbersome, but...
+	#
+	$date_out = $date_in;
+
+	if    ($days_out) {
+		#
+		# All this deals with the plural; "day" vs. "days", etc.
+		#
+		if ($days_out == 1) {
+			$date_out = &DateCalc($date_out,"+ $days_out day",$err);
+			}
+		else { $date_out = &DateCalc($date_out,"+ $days_out days",$err); }
+		}
+	if ($h_out) {
+		if ($h_out == 1) {
+			$date_out = &DateCalc($date_out,"+ $h_out hour",$err);
+			}
+		else { $date_out = &DateCalc($date_out,"+ $h_out hours",$err); }
+		}
+	if ($m_out) {
+		if ($m_out == 1) {
+			$date_out = &DateCalc($date_out,"+ $m_out minute",$err);
+			}
+		else { $date_out = &DateCalc($date_out,"+ $m_out minutes",$err); }
+		}
+
+	print "Logged out + : $date_out\n" if $debug;
+
+	print "\tConverting: $month_to_digit{$mon_in},$day_in,$year_in,$h,$m,0\n" if $debug;
+	
+	$in_seconds = &Date_SecsSince1970GMT($month_to_digit{$mon_in},$day_in,$year_in,$h,$m,0) + $time_difference;
+
+	die "Need a date after 1970\n" if ($in_seconds <= 0);
+
+	#
+	# Convert the stupid out back to readable format.  For all I know
+	# there's some function to do this already, but... grrr...
+	#
+	#  Right now it looks like:  1998022102:40:00
+	#
+	($year_out, $mon_out, $day_out, $h_out, $m_out) = 
+		($date_out =~ /(\d{4})(\d{2})(\d{2})(\d{2}):(\d{2})/);
+
+	$time_out="$digit_to_month{$mon_out} $day_out $year_out $h_out:$m_out";
+
+	print "\tConv-OUT: $mon_out,$day_out,$year_out,$h_out,$m_out,0\n" if $debug;
+
+	$out_seconds = &Date_SecsSince1970GMT($mon_out,$day_out,$year_out,$h_out,$m_out,0) + $time_difference;
+
+	print "FINAL!!!\n\n$in_seconds\n$out_seconds\n\n" if $debug;
+	print "\t (TO-TI) " if $debug;
+	print $out_seconds - $in_seconds . "\n\n" if $debug;
+
+	}	# if "last" time format...
+
+#
+#  "date (1V)" time format:
+#
+#        Sun Mar  8 22:22:03 PDT 1998
+#
+# Assume we want from that time to the present...
+#
+else {
+	#
+	# Calculate current time, from date
+	#
+	die("\nneed a date") unless (defined($time_one));
+
+	if ($time_two) {
+		$parsed_date2 = &ParseDate($time_two);
+
+		die "\nInvalid date (t2) format for \"date\"-style input:\n\n\t$time_two\n\n" unless ($parsed_date2);
+
+		$out_seconds = &UnixDate($parsed_date2, "%s");
+		die "Need a date after 1970 for the 2nd date\n" if ($out_seconds <= 0);
+
+		print "OS: $out_seconds\n" if $debug;
+		}
+
+	$parsed_date = &ParseDate($time_one);
+	die "\nInvalid date (out) format for \"date\"-style input:\n\n\t$time_one\n\n" unless($parsed_date);
+
+	print "PDs: $in_seconds, $out_seconds\n" if $debug;
+
+#
+#  Use some sort of easy user date... not much granularity.  Of
+# the format date/month/year - 4/5/1962 - full four digit year, for Y2K ;-)
+# Of course, this will break in year 10,000, but hey!
+#
+	$in_seconds = &UnixDate($parsed_date, "%s");
+	die "Need a date after 1970\n" if ($in_seconds <= 0);
+
+	}
+
+# walk the dir tree if given one...
+if ($opt_d) {
+	&body_init();
+	$walk_the_plank = 1;
+	&process_dir($directory, 1);
+	}
+
+#
+# Suck in the stat DB
+#
+print "Reading in table...\n" if $debug;
+
+if ($opt_B) { %table = &suck_table($body_out); }
+else        { %table = &suck_table($body); }
+
+# print "ATIME? " . $table{'labels'}{"st_atime"} . "\n";
+# print "DTIME? " . $table{'labels'}{"st_dtime"} . "\n";
+
+for $n (0..$#{$table{'data'}}) {
+
+	$_ = join('|', @{$table{'data'}[$n]});
+
+	print "Body DB $_\n" if $debug;
+
+	# use time machine data format...
+
+	# do we have dtime?
+	if ($table{'labels'}{"st_dtime"}) {
+		$dtime = 1;
+		}
+
+	if (!$dtime) {
+		($md5,$file,$st_dev,$st_ino,$st_mode,$st_ls,$st_nlink,
+		 $st_uid,$st_gid,$st_rdev,$st_size,$st_atime,$st_mtime,
+		 $st_ctime,$st_blksize,$st_blocks) = &tm_split($_);
+		 }
+	else {
+		($md5,$file,$st_dev,$st_ino,$st_mode,$st_ls,$st_nlink,
+		 $st_uid,$st_gid,$st_rdev,$st_size,$st_atime,$st_mtime,
+		 $st_ctime,$st_dtime,$st_blksize,$st_blocks) = &tm_split($_);
+		 }
+
+	#
+	# make symlinks point to the real file, like ls(1)
+	#
+	($st_ls, $x, $real_ls) = split(/\s/, $st_ls);
+	if ($real_ls) { $symlinks{$file} = $real_ls; }
+
+
+	print "STAT: $md5,$file,$st_dev,$st_ino,$st_mode,$st_ls,$st_nlink,
+	$st_uid,$st_gid, $st_rdev,$st_size,A: $st_atime,M: $st_mtime,
+	C: $st_ctime,$st_blksize,$st_blocks\n" if $debug;
+
+	print "STAT: $file A: $st_atime M: $st_mtime C: $st_ctime\n" if $debug;
+
+	#
+	# if name is already used...
+	#
+	if (defined($all_filenames{$file})) {
+		warn "filename already seen - $file!\n" if $debug;
+		next;
+		}
+
+	#
+	# we generally need some value in mactimes... but not always...
+	#
+	if (!$st_atime && !$st_mtime && !$st_ctime && !$dtime) {
+		warn "Invalid format line at line in file $file:\n$_\n"
+			if $debug;
+		# next;
+		}
+
+	#
+	#  First, put all the times in one big array...
+	#
+
+	#
+	# If the date on the file is too old, don't put it in the array
+	#
+	$all_files_used{"$st_mtime\377$file"} .= "m" if $st_mtime > $in_seconds;
+	$all_files_used{"$st_atime\377$file"} .= "a" if $st_atime > $in_seconds;
+	$all_files_used{"$st_ctime\377$file"} .= "c" if $st_ctime > $in_seconds;
+	$all_files_used{"$st_dtime\377$file"} .= "d" if $st_dtime > $in_seconds;
+
+	$all_filenames{$file} = $file;
+
+	# $all_file_modes{$file} = $st_mode;
+
+	#
+	#  Then dump the file mode, owner, group, & size into arrays
+	#
+	# $all_file_modes{$file} = $st_mode;
+	# $all_file_uids{$file}  = $uid2names{$st_uid};
+	# $all_file_gids{$file}  = $gid2names{$st_gid};
+	# $all_file_sizes{$file} = $st_size;
+
+	# we want *something* in these!  Uids are fine if they don't map
+	if ($uid2names{$st_uid} eq "") { $uid2names{$st_uid} = $st_uid; }
+	if ($gid2names{$st_gid} eq "") { $gid2names{$st_gid} = $st_gid; }
+
+	#
+	# put /'s between multiple UID/GIDs
+	#
+	$uid2names{$st_uid} =~ s@\s@/@g;
+	$gid2names{$st_gid} =~ s@\s@/@g;
+
+	$all_files{$file} = "$st_ls:$uid2names{$st_uid}:$gid2names{$st_gid}:$st_size" if (($st_mtime > $in_seconds)|| 
+	  ($st_atime > $in_seconds)||
+	  ($st_ctime > $in_seconds)||
+	  ($st_dtime > $in_seconds));
+
+	}
+
+#
+# suck in all the S[UG]ID files, if any... don't worry if it's not there
+#
+if ($flag_suid && -s "$DATA/$body.S") {
+	%su_files = &suck_table("$body.S");
+	for $n (0..$#{$table{'data'}}) {
+		$_ = join('|', @{$su_files{'data'}[$n]});
+		print "Body DB $_\n" if $debug;
+		($md5,$file,$x) = &tm_split($_);
+		$all_su_files{$file} = $file;
+		}
+	}
+
+unlink($body) if $walk_the_plank && !$save_body;
+unlink("$body.S") if $walk_the_plank && !$save_body;
+
+#
+#  The purpose of the program - print out the results!
+#
+print "Start Time: $time_one, $in_seconds\n" if $debug;
+print "Current Tm: ", time, "\n" if $debug;
+print "Start of Time Selected ($time_one)\n" if $debug;
+
+for $key (sort {$a <=> $b} keys %all_files_used) {
+
+	next if $marker;
+
+	($time, $file) = split(/\377/,$key);
+
+	print "T-in minus Currfile time = ", $in_seconds - $time, "\n" if $debug;
+	next if ($in_seconds > $time);
+
+	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($time);
+
+	# localtime actually returns year - 1900; we want only two digits
+	if ($year > 99) { $year = $year - 100; }
+
+	# the month here is 0-11, not 1-12, like what we want
+	$mon++;
+
+	print "\t$file ($sec,$min,$hour,MDay: $mday,M: $mon,$year,$wday,$yday,$isdst) = ($time)\n" if $debug;
+
+	#
+	# mark the end of time2, the end of the time span desired
+	#
+	if ($out_seconds && $time >= $out_seconds && !$marker) {
+		print "\nEnd ($time) of Time Selected ($out_seconds/$time_two)\n" if $debug;
+		$marker = 1;
+		next;
+		}
+
+	# print "\n$time\t$all_files_used{$key}\t$file\n";
+	#
+	# cosmetic change to make it look like unix dates
+	#
+	$mon   = "0$mon"   if $mon   < 10;
+	$mday  = "0$mday"  if $mday  < 10;
+	$hour  = "0$hour"  if $hour  < 10;
+	$min   = "0$min"   if $min   < 10;
+	$sec   = "0$sec"   if $sec   < 10;
+	$year  = "0$year"  if $year  < 10;
+
+	#
+	#  How do we print the date?
+	#
+	if ($year_first) {
+		$date_string = "$year $digit_to_month{$mon} $mday $hour:$min:$sec";
+		}
+	else {
+		#
+		# US style, the way it was meant to be... ;-)
+		#
+		$date_string = "$digit_to_month{$mon} $mday $year $hour:$min:$sec";
+		}
+
+	#
+	# However, we only print the date if it's different from the one 
+	# above.  We need to fill the empty space with blanks, though.
+	#
+	if ($old_date_string eq $date_string) {
+		$date_string = " ";
+		}
+	else { $old_date_string = $date_string; }
+
+	#
+	#  Muck around with the [mac]times string to make it pretty.
+	# If it has all three (or four!) times, leave it alone.
+	#
+
+	#
+	# wussy way out; so many if statements otherwise!  duplicate
+	# code, see below... bleah!  Oh gods of programming, why didn't
+	# you give me a bigger brain?
+	#
+	print "XXX: $all_files_used{$key} (dtime - $dtime)\n" if $debug;
+
+	if ($dtime) {
+		$mactime = $all_files_used{$key};
+
+		# (side note - length doesn't include the dot, we're
+		# adding it here)
+		if (length($mactime) == 3) {
+			$one   = substr($mactime, 0, 1);
+			$two   = substr($mactime, 1, 1);
+			$three = substr($mactime, 2, 1);
+			#
+			#  possible values:
+			#	.acd
+			#	m.cd
+			#	ma.d
+			#	mac.
+			# 
+			if ($one eq "a")    { $mactime = ".acd"; }
+			elsif ($one eq "m") { 
+				if ($two eq "c") { $mactime = "m.cd"; }
+				elsif ($two eq "a") {
+					if ($three eq "d") {
+						$mactime = "ma.d";
+						}
+					else { 
+						$mactime = "mac.";
+						}
+					}
+				else { warn "Invalid MACD times ($mactime)\n"; }
+				}
+			}
+		if (length($mactime) == 2) {
+			#
+			#  possible values:
+			#	..cd
+			#	ma..
+			#	m.c.
+			#	m..d
+			#	.ac.
+			#	.a.d
+			# 
+			$one = substr($mactime, 0, 1);
+			$two = substr($mactime, 1, 1);
+			if ($one eq "a")    { 
+				if ($two eq "c")    { $mactime = ".ac."; }
+				else                { $mactime = ".a.d"; }
+				}
+
+			elsif ($one eq "m")    { 
+				if ($two eq "a")    { $mactime = "ma.."; }
+				if ($two eq "c")    { $mactime = "m.c."; }
+				else                { $mactime = "m..d"; }
+				}
+
+			elsif ($one eq "c")         { $mactime = "..cd"; }
+			else { warn "Invalid MACD times ($mactime)\n"; }
+			}
+		elsif (length($mactime) == 1) {
+			#
+			#  possible values:
+			#	m...
+			#	.a..
+			#	..c.
+			#	...d
+			# 
+			$one = substr($mactime, 0, 1);
+			if    ($one eq "m") { $mactime = "m..."; }
+			elsif ($one eq "a") { $mactime = ".a.."; }
+			elsif ($one eq "c") { $mactime = "..c."; }
+			elsif ($one eq "d") { $mactime = "...d"; }
+			else { warn "Invalid MACD times ($mactime)\n"; }
+			}
+
+		($ls,$uids,$groups,$size) = split(/:/, $all_files{$file});
+
+		}
+
+	$mactime = $all_files_used{$key};
+	if (length($mactime) == 2) {
+		$one = substr($mactime, 0, 1);
+		$two = substr($mactime, 1, 1);
+		if ($one eq "a")    { $mactime = ".$mactime"; }
+		elsif ($one eq "m") { 
+			if ($two eq "a") { $mactime = "$mactime."; }
+			else             { $mactime = "$one.$two"; }
+			}
+		}
+	elsif (length($mactime) == 1) {
+		$one = substr($mactime, 0, 1);
+		if    ($one eq "m") { $mactime = "$mactime.."; }
+		elsif ($one eq "a") { $mactime = ".$mactime."; }
+		elsif ($one eq "c") { $mactime = "..$mactime"; }
+		}
+
+	($ls,$uids,$groups,$size) = split(/:/, $all_files{$file});
+
+	print "FILE: $file MODES: $ls U: $uids G: $groups S: $size\n" if $debug;
+
+	if (defined($symlinks{$file})) {
+		$file .= " -> $symlinks{$file}";
+		}
+
+	if ($html) {
+		#
+		#  First check to see if we need to do any highlighting...
+		#
+		if ($uids eq $s_user) {
+			# $uids="<font COLOR=\"$user_color\">$uids</font>";
+			$uids=sprintf("<font COLOR=\"$user_color\">%-8s</font>", $uids);
+			}
+
+		#
+		# -f flag
+		#
+		if ($mac_files) {
+			for $s_file (keys %s_files) {
+				next unless $s_file;
+				last if $file eq "\.";
+				# print "Trying... $file ==> $s_file\n";
+				if ($file =~ /^$s_file$/) {
+					$file = "<font COLOR=\"$file_color\">$file</font>";
+					print "FILE MATCH!  $file ==> $s_file\n" if $debug;
+					last;
+					}
+				}
+			}
+
+		#
+		# -s flag - SUID/SGID?
+		#
+		if ($flag_suid && defined($all_su_files{$file})) {
+			$file = "<font COLOR=\"$su_color\">$file</font>";
+			}
+
+		print "FX: $file, $uids\n" if $debug;
+
+		#
+		# highlight files if modified or something?
+		#
+		# if ($mactime =~ /m|c/) {
+		# 	$file = "<strong>$file</strong>";
+		# 	}
+
+		printf("%18s %8s <strong>%3s</strong> %s %-8s %-8s %s\n", 
+		$date_string, $size, $mactime, $ls, $uids, $groups, $file);
+		}
+	elsif ($time_machine) {
+		# printf("%s %s %s %s %s %s %s\n",
+		#       $time, $size, $mactime, $ls, $uids, $groups, $file);
+		&tm_print($time, $size, $mactime, $ls, $uids, $groups, $file);
+		}
+	else {
+		printf("%18s %8s %3s %s %-8s %-8s %s\n", 
+		$date_string, $size, $mactime, $ls, $uids, $groups, $file);
+		}
+	}
+
+#
+# end the printing o' html...
+#
+if ($html) {
+print<<_EOH_;
+</pre>
+</body>
+</html>
+_EOH_
+
+	}
+
+#
+#  How many seconds difference is there between GMT & localtime?
+#
+sub gmt_vs_local {
+
+chop($date_local = &command_to_string($DATE));
+
+($dow_local,$mon_local,$day_local,$t_local,$x,$year_local) =
+	split(/\s+/,$date_local);
+($h_local,$m_local,$s_local) = split(/:/, $t_local);
+$local_seconds = &Date_SecsSince1970($month_to_digit{$mon_local},$day_local,$year_local,$h_local,$m_local,s_local);
+
+print "\tlocal: $dow_local,$mon_local,$day_local,$t_local,$x,$year_local\n"
+	if $debug;
+print "\tLOCAL: $local_seconds\n" if $debug;
+
+chop($date_gmt = &command_to_string($DATE));
+
+($dow_gmt,$mon_gmt,$day_gmt,$t_gmt,$x,$year_gmt)=split(/\s+/,$date_gmt);
+($h_gmt,$m_gmt,$s_gmt) = split(/:/, $t_gmt);
+$gmt_seconds = &Date_SecsSince1970($month_to_digit{$mon_gmt},$day_gmt,$year_gmt,$h_gmt,$m_gmt,s_gmt);
+
+print "\gmt: $dow_gmt,$mon_gmt,$day_gmt,$t_gmt,$x,$year_gmt\n" if $debug;
+print "\tGMT: $gmt_seconds\n" if $debug;
+
+$difference = $gmt_seconds - $local_seconds;
+print "Seconds difference = $difference\n" if $debug;
+
+return $difference;
+}
+
+sub read_mac_search {
+
+die "Can't open $mac_files\n" unless open(MACF, $mac_files);
+
+while (<MACF>) {
+	next if /^\s*#/;
+	($s_files, $x) = split();
+	$s_files{$s_files} = $s_files;
+
+	print "SF: $s_files\n" if $debug;
+	}
+
+close(MACF);
+
+}

@@ -1,0 +1,74 @@
+
+This is a quick explanation of how to get and query mtimes, atimes, and 
+ctimes (henceforth known as MAC times) for a system.
+
+MACtimes are very ephemeral - since almost any operation (reading, 
+writing, etc.) other than the stat() system call (which returns the meta
+information about a file that we get the MACtimes from) will change
+them, we have to be careful about how to obtain them.
+
+Although the "mactime" tool can obtain MACtimes directly it doesn't save
+the results in a database, so it is usually desirable to use the 
+"grave-robber", a program that lstat(2)'s an arbitrary amount of the 
+file system and saves the results for later processing.  To run it you 
+simply type (as any user, but usually as root because you can't lstat()
+things in dirs you can't search):
+
+	# ./grave-robber -m /directory-tree
+
+(The -m flag means only do MACtimes).  Obviously, if you specify the 
+root dir ("/") it should go through the entire file system.  (Warning - 
+NFS dirs are currently searched, just be aware.)  Try it out on something 
+like /tmp or /bin.
+
+Grave-rob should not disturb the system in any way (other than the process
+walking through the file system and doing lstat(), that is.)
+
+Once the grave-rob'ing is done, you'll want to use the "mactime" program.
+Mactime (see mac.README) is easy to use in its simplest form - just type:
+
+	% ./mactime 4/5/2000
+
+It will dump to stdout all the files that had their MAC times changed
+since then, like:
+
+  (date      time     size   MAC   perms    owner    group   file)
+
+  [....]
+  Apr 05 99 04:05:00 5506499 m.. -rw-rw-rw- root     mailman /var/log/syslog.7
+  Apr 10 99 04:05:00 6389017 m.. -rw-rw-rw- root     mailman /var/log/syslog.6
+  Apr 12 99 01:04:39    3978 .a. -rw------- root     mailman /var/log/arclog
+  Apr 12 99 14:10:15    3978 m.c -rw------- root     mailman /var/log/arclog
+  [....]
+
+
+Try it out!  It's trivial to see what someone did on a system if you get 
+to it quick enough, and even events that happened far in the past can 
+be examined if they are unusual enough (odd header files being used in 
+a compile, for instance.)  Some really cool uses for this tool:
+
+	o	Find out what files are touched/run during a system boot -
+		esp. cool when comparing OS's
+
+	o	Nuking SUID/SGID files on a firewall (if they haven't
+		been touched in, say, a year (let alone since the system
+		was installed!), you can probably kill them.)
+
+	o	Determining activity during a day or slice of time
+
+	o	Finding out how much complexity (in terms of files) a
+		windowing system *really* adds.
+
+It can be really, really informative in just learning about your system!
+
+Of course, MAC times are as robust as limp celery - a stiff breeze will
+change them, and intruders can easily modify them.  They can be quite
+useful, however.
+
+I've added some small HTML support - mild highlighting, etc.  To use
+this, simply check out the options -u & -f.  Example usage:
+
+	% mactime -u root -f conf/mac_file.lst 5/1/2000
+
+(Look at the mac_file.headers for another simple example).
+

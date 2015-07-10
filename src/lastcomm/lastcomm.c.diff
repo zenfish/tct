@@ -1,0 +1,417 @@
+*** lastcomm.c.freebsd	Sun Jul 23 12:42:43 2000
+--- lastcomm.c	Mon Jul 24 12:47:52 2000
+***************
+*** 43,54 ****
+  static char sccsid[] = "@(#)lastcomm.c	8.1 (Berkeley) 6/6/93";
+  #endif /* not lint */
+  
+  #include <sys/param.h>
+  #include <sys/stat.h>
+  #include <sys/acct.h>
+  
+  #include <ctype.h>
+- #include <err.h>
+  #include <fcntl.h>
+  #include <stdio.h>
+  #include <stdlib.h>
+--- 43,59 ----
+  static char sccsid[] = "@(#)lastcomm.c	8.1 (Berkeley) 6/6/93";
+  #endif /* not lint */
+  
++ #include "sys_defs.h"
++ 
++ #ifdef USE_SYSMACROS_H
++ #include <sys/sysmacros.h>
++ #endif
++ 
+  #include <sys/param.h>
+  #include <sys/stat.h>
+  #include <sys/acct.h>
+  
+  #include <ctype.h>
+  #include <fcntl.h>
+  #include <stdio.h>
+  #include <stdlib.h>
+***************
+*** 56,70 ****
+  #include <struct.h>
+  #include <unistd.h>
+  #include <utmp.h>
+! #include "pathnames.h"
+  
+! time_t	 expand __P((u_int));
+! char	*flagbits __P((int));
+! char	*getdev __P((dev_t));
+! int	 requested __P((char *[], struct acct *));
+! void	 usage __P((void));
+  char	*user_from_uid();
+  
+  #define AC_UTIME 1 /* user */
+  #define AC_STIME 2 /* system */
+  #define AC_ETIME 4 /* elapsed */
+--- 61,79 ----
+  #include <struct.h>
+  #include <unistd.h>
+  #include <utmp.h>
+! /*#include "pathnames.h"*/
+  
+! time_t	 expand(u_int);
+! char	*flagbits(int);
+! char	*getdev(dev_t);
+! int	 requested(char *[], struct acct *);
+! void	 usage(void);
+  char	*user_from_uid();
+  
++ char	*print_uid(uid_t);
++ #define user_from_uid(u,f) print_uid(u)
++ #define err(e, fmt, s) { perror(s); exit(e); }
++ 
+  #define AC_UTIME 1 /* user */
+  #define AC_STIME 2 /* system */
+  #define AC_ETIME 4 /* elapsed */
+***************
+*** 75,80 ****
+--- 84,94 ----
+  
+  #define AC_HZ ((double)AHZ)
+  
++ #ifndef PRINT_NAMESIZE
++ #define PRINT_NAMESIZE	UT_NAMESIZE
++ #define PRINT_LINESIZE	UT_LINESIZE
++ #endif
++ 
+  int
+  main(argc, argv)
+  	int argc;
+***************
+*** 89,102 ****
+  	int ch;
+  	char *acctfile;
+  	int time = 0;
+  
+  	acctfile = _PATH_ACCT;
+! 	while ((ch = getopt(argc, argv, "f:usecSE")) != EOF)
+  		switch((char)ch) {
+  		case 'f':
+  			acctfile = optarg;
+  			break;
+  
+  		case 'u': 
+  			time |= AC_UTIME; /* user time */
+  			break;
+--- 103,120 ----
+  	int ch;
+  	char *acctfile;
+  	int time = 0;
++ 	int time_machine = 0;
+  
+  	acctfile = _PATH_ACCT;
+! 	while ((ch = getopt(argc, argv, "f:tusecSE")) != EOF)
+  		switch((char)ch) {
+  		case 'f':
+  			acctfile = optarg;
+  			break;
+  
++ 		case 't':
++ 			time_machine = 1;
++ 			break;
+  		case 'u': 
+  			time |= AC_UTIME; /* user time */
+  			break;
+***************
+*** 106,121 ****
+  		case 'e':
+  			time |= AC_ETIME; /* elapsed time */
+  			break;
+!         	case 'c':
+!                         time |= AC_CTIME; /* user + system time */
+  			break;
+  
+!         	case 'S':
+!                         time |= AC_BTIME; /* starting time */
+  			break;
+!         	case 'E':
+  			/* exit time (starting time + elapsed time )*/
+!                         time |= AC_FTIME; 
+  			break;
+  
+  		case '?':
+--- 124,139 ----
+  		case 'e':
+  			time |= AC_ETIME; /* elapsed time */
+  			break;
+! 		case 'c':
+! 			time |= AC_CTIME; /* user + system time */
+  			break;
+  
+! 		case 'S':
+! 			time |= AC_BTIME; /* starting time */
+  			break;
+! 		case 'E':
+  			/* exit time (starting time + elapsed time )*/
+! 			time |= AC_FTIME; 
+  			break;
+  
+  		case '?':
+***************
+*** 141,146 ****
+--- 159,200 ----
+  	 */
+  	size = sb.st_size - sb.st_size % sizeof(struct acct);
+  
++ 	/* Print the optional time machine header. */
++ 	if (time_machine) {
++ 		char myhostname[BUFSIZ];
++ 		time_t time();
++ 		time_t now;
++ 		if (gethostname(myhostname, sizeof(myhostname) - 1) < 0)
++ 			err(1, "%s", "gethostname");
++ 		time(&now);
++ 		printf("class|host|start_time\n%s|%s|%lu\n",
++ 			"lastcomm", myhostname, (unsigned long) now);
++ 		printf("command|flags|uid|gid|tty");
++ 		printf("|user_time|system_time|start_time|elapsed_time");
++ #if defined(HAVE_MEMORY_USAGE) || defined(HAVE_COMP_MEMORY_USAGE)
++ 		printf("|memory_usage");
++ #endif
++ #ifdef HAVE_COMP_CHAR_IO_COUNT
++ 		printf("|character_io");
++ #endif
++ #ifdef HAVE_COMP_BLOCK_IO_COUNT
++ 		printf("|block_io");
++ #endif
++ #ifdef HAVE_COMP_BLOCK_RW_COUNT
++ 		printf("|block_io");
++ #endif
++ #if defined(HAVE_MAJOR_PFLTS) || defined(HAVE_COMP_MAJOR_PFLTS)
++ 		printf("|major_page_faults|minor_page_faults");
++ #endif
++ #ifdef HAVE_EXIT_STATUS
++ 		printf("|exit_status");
++ #endif
++ #ifdef HAVE_COMP_SWAP_USAGE
++ 		printf("|swaps");
++ #endif
++ 		printf("\n");
++ 	}
++ 
+  	/* Check if any records to display. */
+  	if (size < sizeof(struct acct))
+  		exit(0);
+***************
+*** 154,185 ****
+  		err(1, "%s", acctfile);
+  
+  	for (;;) {
+  		if (fread(&ab, sizeof(struct acct), 1, fp) != 1)
+  			err(1, "%s", acctfile);
+  
+  		if (fseek(fp, 2 * -(long)sizeof(struct acct), SEEK_CUR) == -1)
+  			err(1, "%s", acctfile);
+  
+- 		if (size == 0)
+- 			break;
+- 		size -= sizeof(struct acct);
+- 
+  		if (ab.ac_comm[0] == '\0') {
+  			ab.ac_comm[0] = '?';
+  			ab.ac_comm[1] = '\0';
+! 		} else
+! 			for (p = &ab.ac_comm[0];
+! 			    p < &ab.ac_comm[fldsiz(acct, ac_comm)] && *p; ++p)
+! 				if (!isprint(*p))
+! 					*p = '?';
+  		if (*argv && !requested(argv, &ab))
+  			continue;
+  
+! 		(void)printf("%-*s %-7s %-*s %-*s ",
+! 			     fldsiz(acct, ac_comm), ab.ac_comm,
+  			     flagbits(ab.ac_flag),
+! 			     UT_NAMESIZE, user_from_uid(ab.ac_uid, 0),
+! 			     UT_LINESIZE, getdev(ab.ac_tty));
+  		
+  		
+  		/* user + system time */
+--- 208,300 ----
+  		err(1, "%s", acctfile);
+  
+  	for (;;) {
++ 		if (size < 0)
++ 			break;
++ 
+  		if (fread(&ab, sizeof(struct acct), 1, fp) != 1)
+  			err(1, "%s", acctfile);
+  
++ 		size -= sizeof(struct acct);
++ 
++ 		if (size >= 0)
+  		if (fseek(fp, 2 * -(long)sizeof(struct acct), SEEK_CUR) == -1)
+  			err(1, "%s", acctfile);
+  
+  		if (ab.ac_comm[0] == '\0') {
+  			ab.ac_comm[0] = '?';
+  			ab.ac_comm[1] = '\0';
+! 		} 
+  		if (*argv && !requested(argv, &ab))
+  			continue;
+  
+! 		/* Optionally produce time machine format output */
+! #define UNSIG(x) ((unsigned char *)(x))
+! 		if (time_machine) {
+! 			for (p = ab.ac_comm; *p != 0
+! 				&& p < ab.ac_comm + fldsiz(acct, ac_comm); p++)
+! 				if (isascii(*UNSIG(p)) && isprint(*UNSIG(p))
+! 				&& *UNSIG(p) != '|' && *UNSIG(p) != '%')
+! 					putchar(*UNSIG(p));
+! 				else
+! 					printf("%%%02X", *UNSIG(p));
+! 			printf("|%s|%lu|%lu",
+! 				flagbits(ab.ac_flag),
+! 				(unsigned long) ab.ac_uid,
+! 				(unsigned long) ab.ac_gid);
+! 			printf("|%s", getdev(ab.ac_tty));
+! 
+! 			printf("|%.2f|%.2f|%ld|%.2f",
+! 				expand(ab.ac_utime) / AC_HZ,
+! 				expand(ab.ac_stime) / AC_HZ,
+! 				(long) ab.ac_btime,
+! 				expand(ab.ac_etime) / AC_HZ);
+! 
+! #ifdef HAVE_MEMORY_USAGE
+! 			printf("|%lu", (unsigned long) ab.ac_mem);
+! #endif
+! #ifdef HAVE_COMP_MEMORY_USAGE
+! 			printf("|%lu", (unsigned long) expand(ab.ac_mem));
+! #endif
+! #ifdef HAVE_COMP_CHAR_IO_COUNT
+! 			printf("|%lu", (unsigned long) expand(ab.ac_io));
+! #endif
+! #ifdef HAVE_COMP_BLOCK_IO_COUNT
+! 			printf("|%lu", (unsigned long) expand(ab.ac_io));
+! #endif
+! #ifdef HAVE_COMP_BLOCK_RW_COUNT
+! 			printf("|%lu", (unsigned long) expand(ab.ac_rw));
+! #endif
+! #ifdef HAVE_MAJOR_PFLTS
+! 			printf("|%lu|%lu",
+! 				(unsigned long) ab.ac_majflt,
+! 				(unsigned long) ab.ac_minflt);
+! #endif
+! #ifdef HAVE_COMP_MAJOR_PFLTS
+! 			printf("|%lu|%lu",
+! 				(unsigned long) expand(ab.ac_majflt),
+! 				(unsigned long) expand(ab.ac_minflt));
+! #endif
+! #ifdef HAVE_EXIT_STATUS
+! 			printf("|%ld", ab.ac_exitcode);
+! #endif
+! #ifdef HAVE_COMP_SWAP_USAGE
+! 			printf("|%lu", (unsigned long) expand(ab.ac_swaps));
+! #endif
+! 			printf("\n");
+! 			continue;
+! 		}
+! 
+! 		/* Produce the default output format. */
+! 		for (p = &ab.ac_comm[0];
+! 		    p < &ab.ac_comm[fldsiz(acct, ac_comm)] && *p; ++p)
+! 			if (!isprint(*p))
+! 				*p = '?';
+! 		(void)printf("%-*.*s %-7s %-*s %-*s ",
+! 			     fldsiz(acct, ac_comm), fldsiz(acct, ac_comm),
+! 			     ab.ac_comm,
+  			     flagbits(ab.ac_flag),
+! 			     PRINT_NAMESIZE, user_from_uid(ab.ac_uid, 0),
+! 			     PRINT_LINESIZE, getdev(ab.ac_tty));
+  		
+  		
+  		/* user + system time */
+***************
+*** 206,212 ****
+  		
+  		/* starting time */
+  		if (time & AC_BTIME) {
+! 			(void)printf("%.16s ", ctime(&ab.ac_btime));
+  		}
+  		
+  		/* exit time (starting time + elapsed time )*/
+--- 321,327 ----
+  		
+  		/* starting time */
+  		if (time & AC_BTIME) {
+! 			(void)printf("%.16s ", ctime((time_t *)&ab.ac_btime));
+  		}
+  		
+  		/* exit time (starting time + elapsed time )*/
+***************
+*** 248,256 ****
+--- 363,377 ----
+  	p = flags + 1;
+  	BIT(ASU, 'S');
+  	BIT(AFORK, 'F');
++ #ifdef ACOMPAT
+  	BIT(ACOMPAT, 'C');
++ #endif
++ #ifdef ACORE
+  	BIT(ACORE, 'D');
++ #endif
++ #ifdef AXSIG
+  	BIT(AXSIG, 'X');
++ #endif
+  	*p = '\0';
+  	return (flags);
+  }
+***************
+*** 279,292 ****
+  	dev_t dev;
+  {
+  	static dev_t lastdev = (dev_t)-1;
+! 	static char *lastname;
+! 
+  	if (dev == NODEV)			/* Special case. */
+  		return ("__");
+  	if (dev == lastdev)			/* One-element cache. */
+  		return (lastname);
+  	lastdev = dev;
+! 	lastname = devname(dev, S_IFCHR);
+  	return (lastname);
+  }
+  
+--- 400,412 ----
+  	dev_t dev;
+  {
+  	static dev_t lastdev = (dev_t)-1;
+! 	static char lastname[BUFSIZ];
+  	if (dev == NODEV)			/* Special case. */
+  		return ("__");
+  	if (dev == lastdev)			/* One-element cache. */
+  		return (lastname);
+  	lastdev = dev;
+! 	sprintf(lastname, "%d,%d", (int) major(dev), (int) minor(dev));
+  	return (lastname);
+  }
+  
+***************
+*** 294,299 ****
+  usage()
+  {
+  	(void)fprintf(stderr,
+! 	    "lastcomm [-EScesu] [ -f file ] [command ...] [user ...] [tty ...]\n");
+  	exit(1);
+  }
+--- 414,428 ----
+  usage()
+  {
+  	(void)fprintf(stderr,
+! 	    "lastcomm [-EScestu] [ -f file ] [command ...] [user ...] [tty ...]\n");
+  	exit(1);
++ }
++ 
++ char *
++ print_uid(uid_t uid)
++ {
++ 	static char buf[BUFSIZ];
++ 
++ 	sprintf(buf, "%lu", (unsigned long) uid);
++ 	return (buf);
+  }

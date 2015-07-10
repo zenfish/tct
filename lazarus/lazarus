@@ -1,0 +1,1300 @@
+#!/usr/bin/perl5
+#
+#  Lazarus - tries to revive things that have died and gone into the 
+# binary spirit world... deleted files, data in memory, swap, etc.
+#
+#  It takes data, examines it, and if it passes certain criteria marks
+# it as a text or binary block and either saves it or throws it away.
+# Saved data blocks can be examined later with additional tools or via
+# a browser if lazarus is run with the -h (HTML) option.
+#
+#  Options include:
+#
+#	-1 - process byte-style, one byte at a time, rather than one
+#		block of data at a time.
+#
+#	-b - don't write unrecognized binary data blocks (writes by default)
+#
+#	-B - don't write *ANY* binary data blocks (writes by default)
+#
+#	-d - turn debug on (not recommended ;-))
+#
+#	-h - emit HTML code rather than ascii text.  It outputs to three
+#		files - the data file ($ARGV[0]) + .html, .menu.html,
+#		and .frame.html.  You generally want to look at the
+#		$ARGV[0].frame.html file (with your browser) initially.
+#		Might not do what you expect if you give a complete
+#		pathname to file, since the HTML will be written in
+#		that same dir (e.g. /usr/local/bin/foo.html, etc.),
+#		unless you specify the -H flag below.
+#
+#	-H directory  - write the HTML code into this directory name
+#		(obviously only useful with the -h flag!)
+#
+#	-D directory  - write the blocks into this directory name
+#			(hey, running out of letters here, cut me slack!)
+#
+#	-t - don't write unrecognized text data blocks (writes by default)
+#
+#	-T - don't write *ANY* text data blocks (writes by default)
+#
+#	-w directory  - use this directory to write all the HTML code.
+#			Meaningless unless used with -h!
+#
+#  The output is a set of characters (or HTML color-coded chars, see
+# lazarus.cf) that correspond to the type of blocks that lazarus sees.
+# In addition it creates files that contain the data in the $blocks 
+# directory.  Consecutive blocks of the same character type means that 
+# it has seen a run of blocks that it strings together and stuffs in 
+# the same $blocks/* output file.  The initial character of a run will 
+# always be a capital letter (if possible; some types are denoted by
+# punctuation marks), followup letters in the same run will be lowercase.
+# For instance, if it outputs "Cc", it means that the first block and 
+# second blocks of the data found are suspected to be C programs.  
+# A "." represents binary blocks of data.
+#
+#  To make the output stay in semi-managable size, it does a logarithmic
+# compression of the output (base 2).  The first character represents
+# one block or less of data, the 2nd from 0-2 blocks, the 3rd 0-4, the 
+# fourth 0-8, etc.  Blocks are typically, but not always (and are user 
+# definable) 1024 bytes.
+#
+#  Typical output might look like:
+#
+#    .....T.Ttt..T.Tt.Tttt.Tttt.Ttttt.Ccc.....L..Lll....
+#    Llllllll....T.Mmmmmm..TMmmmm....LlllllllllllMmmmm..
+#    [...]
+#
+
+$TCT_HOME = "";
+
+$| = 1;
+
+$running_under_grave_robber = 1;
+
+# reconfig should have changed this
+if (!$TCT_HOME) {
+	die "Can't find TCT_HOME - did you run reconfig?\n";
+	}
+else { 
+	require "$TCT_HOME/conf/coroner.cf";
+	}
+
+require "lazarus.cf";
+require "command.pl";
+require "getopts.pl";
+require "paths.pl";
+
+#
+#  we usually carry around the alternate magic file...
+#
+if (-f "$ETC/magic") { $magic_file = "$ETC/magic"; }
+else {
+	die "Can't find the /etc/magic file\n" unless (-f "/etc/magic");
+	$magic_file = "/etc/magic";
+	warn "Couldn't find $ETC/magic, switching over to $magic_file\n";
+	}
+
+#
+#  Currently the default is to save/write everything other than unresolved
+# binary files...
+#
+$write_all_text = $write_text = $write_all_binary = $write_binary = 1;
+
+$num_tagged = 0;
+
+#
+# Use the program
+#
+$usage = "usage: $0 [-1bBD:hH:tTw:] file\n";
+
+&Getopts("1bBdD:hH:tvTw:") || die $usage;
+
+#
+#  Do we process the input data as block type data (reading 1K or
+# more at a time) or nibble at it byte by byte?
+#
+if ($opt_1) { $byte_style = 1; }
+
+#
+#  Process the rest of the options...
+#
+if ($opt_b) { $write_binary = 0; }
+if ($opt_B) { $write_all_binary = 0; }
+if ($opt_d) { $debug = 1; }
+else        { $debug = 0; }
+if ($opt_D) { $blocks = $opt_D; }
+if ($opt_h) { $html = 1; }
+if ($opt_t) { $write_text = 0; }
+if ($opt_v) { $verbose = 1; }
+else        { $verbose = 0; }
+if ($opt_T) { $write_all_text = 0; }
+if ($opt_w) { $www = $opt_w; }
+
+#
+# Open the data and start to roll!
+#
+die "Can't open $ARGV[0]\n" unless open(ARG, $ARGV[0]);
+
+# put the HTML code here
+if ($opt_H) {
+	die "The -H option makes no sense without the -h flag\n" unless $opt_h;
+	($target_file = $ARGV[0]) =~ s@.*/@@;
+	$target_name = "$opt_H/$target_file";
+	mkdir($opt_H, 0700);
+	die "$opt_H is not a directory!\n" unless (-d $opt_H);
+	}
+else {
+	$target_name = $ARGV[0];
+	}
+
+# print "TN:$target_name, $target_name.html, $opt_H\n";
+
+#
+# nibble off a block...
+#
+$res = read(ARG, $block, $BLOCK_SIZE);
+
+#
+# Store all the written data & HTML files here
+#
+mkdir($blocks, 0700);
+mkdir($www, 0700);
+
+#
+# want to ensure the files to be readable by WWW while being written;
+# you'll have to chmod the main dir as a precaution.
+#
+umask(022);
+
+#
+#  Determine threshold levels for the text recognition part of things...
+#
+if ($res <= $min_number_bytes) {
+	$threshold     = int($threshold_pct * $res);
+	}
+else {  $threshold     = int($threshold_pct * $min_num_bytes); }
+
+#
+#  -s option starts us at different location...
+#
+if (!$output_file) { $output_file = 1; }
+
+$i = 0;
+$tag_block = ".";
+$num_times_printed = 1;
+$log = 1;
+
+#
+#  Print out the frame stuff for the main window
+#
+if ($html) {
+	die "Can't open $target_name.html\n" unless open(STDOUT, ">$target_name.html");
+	&print_master_frame();
+	}
+
+#
+#  While we haven't hit the end... main loop
+#
+while ($res) {
+	$offset = $image = $consecutive_bin = 0;
+	$size = length($block);
+	undef(%current_block);
+	$last_tag_block = $tag_block;
+	$min_num_bytes = 100;
+
+	# print "FIRST - block: $block\n";
+
+	#
+	#  Search the block just sucked in for the missing target(s),
+	# one byte at a time... sssslllloooowwww....
+	#
+	if ($byte_style) {
+		#
+		# go from the beginning of the block to block - $how_many_bytes
+		#
+
+		if ($i < $BLOCK_SIZE) {
+			$test_block = "";
+			}
+
+		print "I1: $i\n" if $debug;
+		$i = 0 if ($i >= $BLOCK_SIZE);
+
+		for (; $i < $BLOCK_SIZE; $i++) {
+			print "I2: $i " if $debug;
+			#
+			# if we're still in the middle of a block of
+			# data we don't want to blow away our current
+			# potential block of data
+			#
+			# if ($i != ($BLOCK_SIZE - $how_many_bytes)) {
+			# 	$test_block = "";
+			# 	}
+
+			#
+			# keep moving the window, looking for printable chars
+			#
+			for ($j = 0;$j<$how_many_bytes;$j++) {
+				$char = substr($block, $j + $i, 1);
+				$ord = ord($char);
+
+				#
+				#  Currently this is POTENTIALLY *DIFFERENT*
+				# than the regexp solution used in the
+				# block-based search; is this equal to
+				# the range " -~\s"?  The \s is what
+				# I'm unsure about.
+				#
+				if (($ord < 32 || $ord > 127) && 
+				    ($ord != 9 && $ord != 10)) {
+					$test_block = "";
+					# print "BREAKOUT ($char/$ord)!!!\n";
+					last;
+					}
+
+				print "X ($j + $i): $char\n" if $debug;
+				$test_block .= "$char";
+				}
+
+			if ($j == $how_many_bytes) {
+
+				#print "YYY - $block \n\nZZZ $test_block)\n";
+
+				# keep going 'till the end o' the block
+				$char = substr($block, $j + $i, 1);
+				$ord=ord($char);
+				print "YYY ($j + $i) - $char - $ord\n" if $debug;
+				$n = 1;
+
+				while (($ord >= 32 && $ord <= 127) ||
+				 	($ord == 9 || $ord == 10) &&
+					(($i+$j+$n) < $BLOCK_SIZE)){
+						$test_block .= $char;
+						print "Z ($n + $j + $i): $char:\n" if $debug;
+						$char = substr($block,$j+$i+$n,1);
+						$ord=ord($char);
+						$n++;
+						}
+				$block = $_ = $test_block;
+				# print "#### $block\n";
+				$tag_block = "t";
+				$i += $j + $n;
+				last;
+				}
+			print "@@@ (I:$i J:$j)\n" if $debug;
+			$i += $j + $n;
+			print "@@@ (I:$i J:$j)\n" if $debug;
+			}
+		}
+	
+	else {
+
+		#
+		# let's try the disk block approach; 1K data, look at 
+		# first $min_num_bytes bytes of the block...
+		$_ = $block;
+
+		# print "BLOCK is: $block\n";
+
+		if (length($block) < $min_num_bytes) {
+			$min_num_bytes = length($block);
+			}
+
+		#
+		# flag any printable chars as cool/text
+		#
+		if (/[ -~\s]{$threshold,$block_size}/s) {
+			$tag_block = "t";
+			# print "XXX";
+			}
+		else { $tag_block = "."; }
+
+		# print $block if $tag_block;
+
+		}
+
+	$block_num++;
+
+	#
+	#  write the block if it's text
+	#
+	if ($tag_block eq "t") {
+		#
+		# what sort of text?
+		#
+		$last_type = $type;
+		$type = &determine_text_type();
+
+		# print one char description
+		# print $tag_block;
+
+		# print "\nXXX: $block_num, $text, $output_file\n";
+
+		# was the last write to a text file (of the same sort)?
+		if ((($text + 1) != $block_num) || ($last_type ne $type)) { 
+			$output_file = $text = $block_num;
+			}
+		else {
+			if (!$output_file) { 
+				$output_file = $text;
+				}
+			}
+
+		# print "YYY: BN: $block_num, SB: $sub_block T: $text, OF: $output_file\n";
+
+		#
+		# finally, print the damn thing. 
+		# save the last one printed for logrithmic (base 2)
+		# output compression
+		#
+
+		if ($write_all_text) {
+			if ($write_text || (!$write_text && $type ne "t")) {
+				$written_blocks{$block_num} = $block_num;
+				}
+			}
+
+		if (($last_printed_char eq $type) &&
+			!($num_times_printed % $log)) {
+				if ($html) { &html_print($type); }
+				else       { print $type; }
+
+				$log = $log * $exponent;
+				$num++;
+				}
+		if ($last_printed_char ne $type) {
+			if ($html) { &html_print($type); }
+			else       { print $type; }
+
+			$log = 1;
+			$num_times_printed = 1;
+			$num++;
+			}
+
+		$num_times_printed++;
+		$last_printed_char = $type;
+
+		#
+		#  If not equal to the last block it's special...
+		# save data so I can make a framework (using frames) that 
+		# makes navigation possible... thanks to muffy for showing me 
+		# how to do this!
+		#
+
+		#
+		# Do we want to write the text stuff?
+		#
+		if ($write_all_text) {
+			if ($write_text || (!$write_text && $type ne "t")) {
+				die "Can't open block $blocks/$output_file\n" 
+				unless open(BLOCK, ">>$blocks/$output_file.$type.txt");
+				print "\nWriting text to $blocks/$output_file.$type.txt\n" if $debug;
+				}
+			}
+
+		#
+		#  If not equal to the last block it's special
+		#
+		if ($last_printed_char ne $type) {
+			$previous_type = $last_printed_char;
+			}
+
+		if ($write_all_text) {
+			print BLOCK $block unless
+				(!$write_text && $type eq "t");
+			}
+
+		close(BLOCK);
+		$test_block = "";
+		$num_tagged++;
+
+		# was the last write to a text file (of the same sort)?
+		if (($text + 1) == $block_num) { $text++; }
+
+		$bin = -1;
+		$last_suffix = "";
+		$suffix = "";
+		}
+	#
+	#  binary time...
+	#
+	else {
+		print "\nSTARTING -> Typex/Lasttypex/lastsuffx => $type/$last_type/$last_suffix\n" if $debug;
+		#
+		# what sort of binary?
+		#
+		$last_type = $type;
+		$type = &determine_binary_type();
+
+		print "OF0/Type0/block0 (after change) => $output_file/$type/$block_num\n" if $debug;
+
+		#
+		# we want to avoid concatonating consecutive similar 
+		# binary files, unlike with text (lots of little images,
+		# for instance)
+		#
+		if ($last_type eq $type && $type ne ".") { 
+			$consecutive_bin = 1;
+			}
+
+		#
+		#  Binaries are a mess.  If it's indeterminate type,
+		# assign it to the last type, if the last type is
+		# a binary type o' thing.
+		#
+		$real_type = $type;
+		if ($type eq "." && $last_type ne "." && 
+		   (defined($is_binary{$last_type}))) {
+			$type = $last_type;
+			}
+
+		print "OF/bin/Type/block (after change) => $output_file/$bin/$type/$block_num\n" if $debug;
+		print "Type/Lasttype => $type/$last_type\n" if $debug;
+
+		# was the last write to a binary file of the same sort?
+		if ($last_type ne $type) { 
+			$output_file = $bin = $block_num;
+			}
+		else {
+			if ($consecutive_bin) {
+				$output_file = $bin = $block_num
+				}
+			elsif (!$output_file) {
+				$output_file = $bin;
+				}
+			}
+
+		print "$output_file, Type/Lasttype => $type/$last_type\n" if $debug;
+
+		#
+		# finally, print the damn thing. 
+		# save the last one printed for logrithmic (base 2)
+		# output compression
+		#
+
+		if ($write_all_binary) {
+			if ($write_binary || (!$write_binary && $type ne "t")) {
+				$written_blocks{$block_num} = $block_num;
+				}
+			}
+
+print "LPC/type NTP%LOG=> $last_printed_char/$type $num_times_printed%$log " . $num_times_printed%$log . "\n" if $debug;
+
+		if ($consecutive_bin) {
+			if ($html) { &html_print($type); }
+			else       { print $type; }
+
+			$log = 1;
+			$num_times_printed = 1;
+			$num++;
+			}
+		elsif (($last_printed_char eq $type) &&
+			!($num_times_printed % $log)) {
+				if ($html) { &html_print($type); }
+				else       { print $type; }
+
+				$log = $log * $exponent;
+				$num++;
+				}
+		if ($last_printed_char ne $type) {
+			if ($html) { &html_print($type); }
+			else       { print $type; }
+
+			$log = 1;
+			$num_times_printed = 1;
+			$num++;
+			}
+
+		$num_times_printed++;
+		$last_printed_char = $type;
+
+		#
+		# save data so I can make a framework (using frames) that 
+		# makes navigation possible... thanks to muffy for showing me 
+		# how to do this!
+		#
+
+		print "\nType2/Lasttype2/lastsuff => $type/$last_type/$last_suffix\n" if $debug;
+
+		if ($type eq "g" || 
+		   ($last_suffix eq "if" && $type eq ".")) {
+			print "\nHELL?=> $type/$last_type/$last_suffix\n" if $debug;
+			$last_suffix = $suffix;
+			$suffix = "if";	# allow us to page through gifs
+			$type = "g";
+			}
+		elsif ($type eq "j" ||
+		      ($last_suffix eq "pg" && $type eq ".")) {
+			print "\nHELL2?=> $type/$last_type/$last_suffix\n" if $debug;
+			$last_suffix = $suffix;
+			$type = "j";
+			$suffix = "pg";	# allow us to page through jpgs
+			}
+		else {
+			print "\nHELL3?=> $suffix/$type/$last_type/$last_suffix\n" if $debug;
+			$last_suffix = $suffix;
+			print "\nHELL4?=> $suffix/$type/$last_type/$last_suffix\n" if $debug;
+			$suffix = ".txt";
+			}
+
+		print "OF2/Type2/block2 (after change) => $output_file/$type/$block_num\n" if $debug;
+		#
+		#
+		# do we want to save (to file) all the binary stuff...?
+		#
+		if ($write_all_binary) {
+			if ($write_binary || (!$write_binary && $type ne ".")) {
+				die "Can't open block $blocks/$output_file\n"
+				unless open(BLOCK, ">>$blocks/$output_file.$type$suffix");
+				print "\nXXXX=>>>Writing binary to $blocks/$output_file.$type$suffix\n" if $debug;
+				}
+			}
+
+		#
+		#  If not equal to the last block it's special
+		#
+		if ($last_printed_char ne $type) {
+			$previous_type = $last_printed_char;
+			}
+
+		if ($write_all_binary) {
+			print BLOCK $block unless
+				(!$write_binary && $type eq ".");
+			}
+
+		close(BLOCK);
+		$test_block = "";
+		$num_tagged++;
+
+		# was the last write to a bin file (of the same sort)?
+		if (($bin + 1) == $block_num) { $bin++; }
+
+		$text = -1;
+		}
+
+	# print substr($block, 0, 100);
+
+	#
+	# formatting - default is 80 column screen... old fashioned, I know!
+	#
+	if ($num > ($screen_width-2)) {
+		if ($html) { print "<br>\n"; }
+		else       { print "\n"; }
+		$num = 0;
+		}
+
+	# nibble off another block...
+
+	# $res = read(ARG, $block, $BLOCK_SIZE) unless
+	# 	($byte_style && ($i < ($BLOCK_SIZE - $how_many_bytes)));
+
+	if (!($byte_style && ($i < ($BLOCK_SIZE - $how_many_bytes)))) {
+		$res = read(ARG, $block, $BLOCK_SIZE);
+		}
+
+	if ($res <= $min_number_bytes) {
+		$threshold     = int($threshold_pct * $res);
+		}
+	else {  $threshold     = int($threshold_pct * $min_num_bytes); }
+
+	# print "BLOCK2: $block\n";
+
+	}
+
+close(ARG);
+
+# the very last of the straggling frames...
+&print_frame_stragglers();
+
+if ($html) {
+	print "\n<p>\n</body>\n</html>\n";
+	close(STDOUT);
+	}
+
+#
+#  Determine the type of text we're examining... C, perl, HTML, whatever.
+# much of this will eventually be read from a config file.  Currently being
+# done via simple regexps.
+#
+sub determine_text_type {
+local($_);
+
+#
+# match multiple lines (stupid perl syntax... grumble, grumble...)
+#
+$* = 1;
+
+$_ = $block;
+
+# print "BLOCK: $_";
+
+#
+# Try to keep in order of most seen near the top, as this will improve
+# performance slightly...
+#
+
+#	mail file
+if (/^(From: |Subject: |From )/) {
+	$text_type = "m";
+	}
+#
+# took out some key words... too easily confused with text
+#
+# /(void|static|char) .*\(.*\)/ ||
+#	C, etc. code
+elsif (/^\#(include|ifdef|ifndef)/ || 
+       /\/\*.*\*\//) {
+	$text_type = "c";
+	}
+#
+#	perl & shell stuff
+elsif (/^\#\!.*\/(perl|tk|sh|awk)/ || 
+       /(printf\(|scanf\(|print ")/) {
+	$text_type = "p";
+	}
+#
+# HTML (esp. popular with e-mail these days)
+#
+elsif (/a href=/i || /<html>/i || /<p>/i || /img src/i) {
+	$text_type = "h";
+	}
+#
+# log file... syslog, access_log, etc...
+
+#	syslog-ish
+# elsif (/^{Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec}\s+.*\w+\[\d+\]:/) {
+# elsif (/\s+\w+\[\d+\]:/) {
+
+#	web-ish; IP # followed somewhere by a date
+#        /^\d+\.\d+\.\d+\.\d+\.\s+.*\d\/$months\/\d+/) {
+elsif (/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+.*\w+\[\d+\]:/ ||
+       /^\d+\.\d+\.\d+\.\d+ .*\d+\/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\//) {
+
+	$text_type = "l";
+	}
+#
+#	mail queue file
+elsif (/^(HFrom: |HSubject: |HFrom )/) {
+	$text_type = "q";
+	}
+#
+#  LISP
+elsif (/\(defun|setq /) {
+	$text_type = "s";
+	}
+#
+# uuencoded... rough approx?  61 chars, starts with cap M...
+#
+elsif (/^M[ -~\s]{60}$/ || /^begin \d+ /) {
+	$text_type = "u";
+	}
+#
+#	password file
+elsif (/^\w*:\w*:\d*:\d*:\w*:[^:]*:\w*$/) {
+	$text_type = "w";
+	}
+#
+# sniffer, temporary(?)
+#
+elsif (/^(SRC:.*DST:|STAT:.*DATE:)/) {
+	$text_type = "f";
+	}
+
+else {
+	#
+	# if the last block was binary, flag it as text; if the last 
+	# block was text and can't figure it out, leave as is
+	#
+	if ($last_tag_block ne "t") {
+		$text_type = "t";
+		}
+	}
+
+#
+# turn off multiple line matching
+$* = 0;
+
+return $text_type;
+}
+
+#
+#  print out a short little bit of HTML for a character that corresponds to 
+# the data block it points to.  The first character/byte of a block/run of
+# data will be an href, the rest just straight text.
+#
+sub html_print
+{
+
+#
+#  Put an href in at the first byte (only if that block's data was
+# saved), else just text
+#
+# if ($last_printed_char ne $type && $type ne ".") {
+
+print "WAKKA: $last_printed_char <==> $type || $consecutive_bin\n" if $debug;
+
+if ($last_printed_char ne $type || $consecutive_bin) {
+	$all_types{$block_num} = $type;
+	# print "ALL-TYPES: $block_num -> $type\n";
+	$all_blocks{$block_num} = $block_num;
+	$cap_type = $type;
+	$cap_type =~ tr/[a-z]/[A-Z]/;
+
+	#
+	#  do frame stuff...
+	#
+	&do_frame_stuff() if $html && $written_blocks{$block_num};
+
+	print "\nWB: $written_blocks{$block_num}\n" if $debug;
+
+	#
+	# print the href, etc...
+	#
+	if ($type ne ".") {
+		#
+		# if jpg/gif, print "i", not j/g
+		#
+		if ($cap_type eq "J" || $cap_type eq "G") {
+			$i = "i";
+
+			if ($written_blocks{$block_num}) {
+				print "</tt></font><font COLOR=\"\#$char_colors{$i}\"><tt><a href=\"$www/$output_file.frame.html\" \ntarget=blockwin></tt><font COLOR=\"#$char_colors{$i}\"><tt>I</a></tt></font><tt>";
+				}
+			else {
+				print "</tt></font><font COLOR=\"\#$char_colors{$i}\"><font COLOR=\"#$char_colors{$i}\"><tt>I</a></tt></font><tt>";
+				}
+			}
+		else {
+			if ($written_blocks{$block_num}) {
+				print "</tt></font><font COLOR=\"\#$char_colors{$type}\"><tt><a href=\"$www/$output_file.frame.html\" \ntarget=blockwin></tt><font COLOR=\"#$char_colors{$type}\"><tt>$cap_type</a></tt></font><tt>";
+				}
+			else {
+				print "</tt></font><font COLOR=\"\#$char_colors{$type}\"><font COLOR=\"#$char_colors{$type}\"><tt>$cap_type</a></tt></font><tt>";
+				}
+			}
+		}
+	else {
+		#
+		# if jpg/gif, print "i", not j/g
+		#
+		if ($cap_type eq "J" || $cap_type eq "G") {
+			$i = "i";
+			print "</tt></font><font COLOR=\"\#$char_colors{$i}\"><tt>I</tt></font><tt>";
+			}
+		else {
+			print "</tt></font><font COLOR=\"\#$char_colors{$type}\"><tt>$cap_type</tt></font><tt>";
+			}
+		}
+	}
+else {
+	if ($type eq "j" || $type eq "g") {
+		print "i";
+		}
+	else {
+		print "$type";
+		}
+	}
+
+}
+
+#
+#  put some HTML at the top of data files to make navigation easier...
+#
+
+#
+# Seems that frames can actually be useful after all...
+#
+#  OK - strategy.  We print the frames for a block not as we see them, but 
+# as we see the following block of the same type, because we are printing
+# out pointers in the top frame for previous & next blocks.  We keep track
+# what we print so that at the end we can print out all the blocks that 
+# weren't printed - e.g. the last of a type in the data.
+#
+#  I never, ever want to ever debug this section again.  Bleah.
+#
+sub do_frame_stuff {
+
+#
+#  Find the next & previous blocks for block
+#
+# Vars used are:
+#
+#	$NsB{$type} = next block of same type
+#	$NB{$n}     = next block of any block
+#	$xB{$type}  = Xth block.  This keeps track of the *unprinted* blocks
+#			so we can print out the stragglers at the end
+#			of the program.
+#	$sB{$type}  = last block this type
+#	$PsB{$n}    = previous block of same type
+#	$PB{$n}     = previous block of any block
+#
+#	$nsb        = next same block of current block
+#	$psb        = previous same block of block currently being printed
+#	$nb         = next block of block currently being printed
+#	$pb         = previous block of block currently being printed
+#
+
+$xB{$block_num} = $block_num;
+
+print "SETTING \$xpb = $xpb, BN: $block_num\n" if $debug;
+
+#
+#   If we've seen *any* blocks at all, this block is the next block of
+# previous block (by definition!)
+#
+if (defined(%PB)) {
+	$NB{$xpb} = $block_num;
+	}
+
+#
+# if we have a JPG or GIF or whatever, we want the "next" link to go to 
+# any image, not just one of the *exact* same type.  We set the type
+# temporarily to be image, reset at the bottom of the function
+#
+if ($image) {
+	$image = $type;
+	$type = "IMAGE";
+	}
+
+print "SETTING PB ($block_num)?  \$NB{$xpb} = $NB{$xpb}\n" if $debug;
+
+#
+# kick it all off, seed the vars
+if (! $sB{$type}) {
+
+	print "Never seen this type before... $type, block \# $block_num ($xpb)\n" if $debug;
+
+	#
+	# we might have seen some blocks before this one...
+	#
+	if ($xpb) {
+		$PB{$block_num}      = $xpb;
+		$NB{$PB{$block_num}} = $block_num;
+		}
+	else    { $PB{$block_num}      = $block_num; }
+
+	$sB{$type}       = $block_num;
+	$xpb             = $xnb{$block_num};
+	$PsB{$block_num} = $block_num;
+
+	$xpb       = $block_num;
+
+# print "in if, SETTING NB?  \$xpb = $xpb, BN: $block_num\n";
+
+	}
+#
+# print the *previous* block frame, set values for the next one
+#
+else {
+	# mark it printed...
+
+	# this is the block we'll be printing...
+	$n = $sB{$type};
+
+	undef($xB{$n});
+
+	print "\n\nSetting block stuff...$block_num =>$n, $type\n" if $debug;
+	print "Block $block_num/$n: NB/NsB: $NB{$n}, $NsB{$n}\n" if $debug;
+
+	#
+	# printing out the previous block of the current same type
+	#
+	$psb = $PsB{$n};
+	$pb  = $PB{$n};
+
+	$nsb = $block_num;
+	$nb  = $NB{$n};
+
+# won't work!
+# if (!$nb) { $nb = $nsb; }
+
+# print "SETTING NB ($type/$sB{$type}) for BLOCK $block_num : PB{$block_num}=$PB{$block_num} \$nb = \$NB{$n} ==> $nb = $NB{$n}\n";
+	
+	&print_sub_frame($n);
+
+	$PsB{$block_num}       = $sB{$type};
+	$sB{$type} = $block_num;
+	$PB{$block_num}        = $xpb;
+	$NsB{$PsB{$block_num}} = $block_num;
+	$NB{$PB{$block_num}}   = $block_num;
+
+	$xpb       = $block_num;
+
+	print "Block $block_num: PB/PsB: $xpb/$PsB{$block_num}\n\n\n" if $debug;
+	}
+
+# reset image
+if ($image) { $type = $image; }
+
+}
+
+#
+#  A quick hack run at the end of the program to print out the last few
+# frames that haven't been printed yet.  Set the next frame # of the same
+# type to be itself - ditto for next frame if it's the very last frame
+# of all.
+#
+sub print_frame_stragglers {
+local($block_num, $type);
+
+for $block_num (keys %xB) {
+
+	next unless $xB{$block_num} && $written_blocks{$block_num};
+
+	warn "LAST BLOCKS: $block_num : $xB{$block_num}\n" if $debug;
+
+	# next block is always itself
+	$nsb = $block_num;
+
+	#
+	# should have previous blocks unless it's the only block around!
+	#
+	if ($PsB{$block_num}) {
+		$pnb = $PsB{$block_num};
+		}
+	else { $pnb  = $block_num; }
+	if ($PB{$block_num}) {
+		$pb  = $PB{$block_num};
+		}
+	else { $pb   = $block_num; }
+
+	#
+	# it might have a next block, might not...
+	#
+	if ($NB{$block_num}) {
+		$nb = $NB{$block_num};
+		}
+	else { 
+		$nb  = $block_num; 
+		}
+
+
+	&print_sub_frame($block_num);
+	}
+
+}
+
+sub print_sub_frame {
+local($block_num) = @_;
+
+#
+#  Start with main frame file...
+#
+
+die "Can't open main frame file $www/$block_num.frame.html\n" 
+ 	unless open(MFRAME, ">$www/$block_num.frame.html");
+
+print "(in sub_frame) BN: $block_num PSB/PB NSB/NB $n: $psb/$pb $nsb/$nb\n" if $debug;
+
+#
+# These allow the browser to view images by naming the files
+# .gif or .jpg rather than the usual, non-interpreted .txt suffix
+#
+if ($all_types{$block_num} eq "g") {
+
+	$n_suffix = "if";	# allow us to page through gifs
+	}
+elsif ($all_types{$block_num} eq "j") {
+	$n_suffix = "pg";	# allow us to page through jpgs
+	}
+else {
+	$n_suffix = ".txt";
+	}
+
+print MFRAME<<_EOFR_;
+<html>
+<head>
+<title>Block $block_num, type $all_types{$block_num}</title>
+</head>
+<frameset rows="15%,*" cols="100%">
+<frame name="menu" src="$block_num.menu.html">
+<frame name="main" src="$blocks/$block_num.$all_types{$block_num}$n_suffix">
+</frameset>
+</html>
+_EOFR_
+
+close(MFRAME);
+
+#
+#  Now do the menu/nav bar at top
+#
+die "Can't open nav/menu file $www/$block_num.menu.html\n" 
+	unless open(MENU, ">$www/$block_num.menu.html");
+
+print MENU<<_EOFR_;
+<html>
+<head>
+<title>Navigating the wild-n-wooly seas of data...</title>
+</head>
+<body BGCOLOR="#ffffff">
+
+<P>
+
+<table border=1>
+<tr>
+<td> <a href="$psb.frame.html" target="_parent">previous block of same type </a></td>
+<td> <a href="$nsb.frame.html" target="_parent">next block of same type </a></td>
+</tr>
+<tr>
+<td><a href="$pb.frame.html" target="_parent">previous block </a></td>
+<td><a href="$nb.frame.html" target="_parent">next block </a></td>
+</tr>
+</table>
+
+</body>
+</html>
+
+_EOFR_
+
+close(MENU);
+
+}
+
+#
+#  These are the routines to figure out what a binary file is, and
+# how to mark it in the lazarus output.
+#
+
+#
+#  File(1) is one gnarly program, so I thought I'd cheat and use it
+# instead of rewriting it.  Unfortunately it's also a hack and does
+# some weird stuff.  For instance, in solaris how do you do a file on a file
+# that has a name consisting of whitespace?  Even wildcards don't
+# make it work.  Linux has an odd version, everyone seems to want to
+# do things differently.  Finally wietse ported a reasonable (and free)
+# one, things are much better now.
+#
+
+sub determine_binary_type {
+local($_);
+
+$tmp  = "./tmp.$$";
+
+#
+# I'd pipe straight to file(1) if I could, have to use a temp file 'cuz
+# file doesn't take stdin
+#
+die "Can't open $tmp\n" unless open(TMP, ">$tmp");
+print TMP $block;
+close(TMP);
+
+# die "Can't execute $FILE\n" unless open(FILE, "$FILE -m $magic_file $tmp|");
+pipe_command(FILE, $FILE, "-m", $magic_file, $tmp, "-|");
+
+# print "$FILE -m $magic_file $tmp >$tmp.$$ 2> /dev/null" if $debug;
+
+#
+#  Why, oh why, doesn't file(1) returns an error code if the file
+# doesn't exist or if it gives an error message?  We have to parse
+# this stuff to see if it really gave us something.  Redhat linux (and maybe
+# others) returns an even closer to valid-looking output, so we'll try
+# to be careful here.
+#
+
+# die "Can't open temp file $tmp.$$\n" unless open(TMP, "$tmp.$$");
+
+# should only be one line of output.
+$_ = <FILE>;
+print "R: $_\n" if $debug;
+chop;
+$file_res = $_;
+close(FILE);
+
+# linux error message is...?
+if (/:\s*$/ || /an't stat/) {
+	# try a less-than-heroic measure to figure out if it's an ELF
+	# or something.  Unfortunately, file now uses elf(3) to figure
+	# out what sort of file it is; elf(3) appears to need the entire
+	# file, which we usually won't have; let's check for the first
+	# few bytes as a hack
+	$file_res = &what_the_heck($_);
+	}
+
+$file_res =~ s/^[^:]*:\s*//;
+print "Resu is $file_res\n" if $debug;
+unlink $tmp, "$tmp.$$";
+
+#
+# OK, now try to categorize it...
+#
+
+$_ = $file_res;		# shortcut to make matching easier
+
+#
+#
+#
+# binary stuff below
+
+if (/SPARC/ || /80386/ || /M?8000/ || /486/ || /i860/ || /RS?000/ ||
+    /PowerPC/ || /RISC/ || /xecutable/) {
+    $binary_type = "x";
+    }
+#
+#  ELF'er
+#
+elsif (/ELF/) {
+	$binary_type = "e";
+	}
+# jpegs, gifs, etc.
+elsif (/JPEG/) {
+	$binary_type = "j";
+	$image = 1;
+	}
+elsif (/GIF/) {
+	$binary_type = "g";
+	$image = 1;
+	}
+# sound... "!", like as an exclamation... ok, lame, I know ;-)
+elsif (/mono/i || /stereo/i || /audio/ || /quad/i || /[Au]-law/ || /PCM/) {
+	$binary_type = "!";
+	}
+#
+# make sure to do this after sound; some sound has "compressed" in file output
+#
+elsif (/ompress/) {
+	$binary_type = "z";
+	}
+#
+#  Archive file - cpio, tar, zip, etc.
+#
+elsif (/rchive/) {
+	$binary_type = "a";
+	}
+#
+#  Zero'd block due to rm -P?
+#
+elsif (/null/) {
+	$binary_type = "o";
+	}
+
+elsif (/zero/) {
+	$binary_type = "r";
+	}
+
+else { $binary_type = "."; }
+
+print "BIN type $_: $binary_type ($block_num - $last_type)\n" if $debug;
+
+return $binary_type;
+
+}
+
+#
+#  A quick hack; is it an ELF file?
+#
+sub what_the_heck {
+local($type);
+
+# block was already read...
+($magic) = unpack('A4', $block);
+
+$ord = ord($magic);
+$ord2 = oct($ord);
+
+if ($ord == 127 && (substr($magic, 1, 3) eq "ELF")) {
+	# print "ELF!\n";
+	$type = "ELF";
+	}
+else {
+	# print "is it elf - $ord - $magic?\n";
+	$type = "Unknown";
+	}
+
+return $type;
+
+}
+
+#
+#  put a legend, etc. on the top of the main page
+#
+sub print_master_frame {
+
+#
+# stdout header
+#
+print<<_EOT_;
+
+<html>
+<title>Analysis of $ARGV[0]</title>
+<body BGCOLOR="FFFFFF">
+<font size=+1>
+<tt>
+
+_EOT_
+
+#
+#  The big frame itself
+#
+die "Can't open $target_name.frame.html\n"
+	unless open(FRAME, ">$target_name.frame.html");
+
+print FRAME<<_EOFR_;
+
+<html>
+<head>
+<title>Analysis of $ARGV[0]</title>
+</head>
+
+<frameset rows="18%,*" cols="100%">
+<frame name="menu" src="$target_name.menu.html">
+<frame name="main" src="$target_name.html">
+
+</frameset>
+</html>
+
+_EOFR_
+
+close(FRAME);
+
+#
+#  The menu/legend at top
+#
+die "Can't open $target_name.menu.html\n"
+	unless open(MENU, ">$target_name.menu.html");
+
+# <td> <font COLOR="238e68" size=-1><tt>G = GIF</tt></font></td>
+# <td> <font COLOR="ff99ff" size=-1><tt>H = HTML</tt></font></td>
+
+print MENU<<_EOM_;
+
+<html>
+<head>
+<title>Analysis...</title>
+</head>
+<body BGCOLOR="#ffffff">
+<table border=1>
+<tr>
+<td> <font COLOR="d19275" size=-1><tt>A = archive</tt></font></td>
+<td> <font COLOR="336666" size=-1><tt>C = C code</tt></font></td>
+<td> <font COLOR="d9d9i9" size=-1><tt>E = ELF</tt></font></td>
+<td> <font COLOR="ff0000" size=-1><tt>f = sniffers</tt></font></td>
+<td> <font COLOR="ff99ff" size=-1><tt>H = HTML</tt></font></td>
+<td> <font COLOR="238e68" size=-1><tt>I = image/pix</tt></font></td>
+<td> <font COLOR="cc9900" size=-1><tt>L = logs</tt></font></td>
+</tr><tr>
+<td> <font COLOR="0066ff" size=-1><tt>M = mail</tt></font></td>
+<td> <font COLOR="bbbbbb" size=-1><tt>O = null</tt></font></td>
+<td> <font COLOR="cc6666" size=-1><tt>P = programs</tt></font></td>
+<td> <font COLOR="6633ff" size=-1><tt>Q = mailq</tt></font></td>
+<td> <font COLOR="000000" size=-1><tt>R = removed</tt></font></td>
+<td> <font COLOR="6699ff" size=-1><tt>S = lisp</tt></font></td>
+<td> <font COLOR="777777" size=-1><tt>T = text</tt></font></td>
+</tr><tr>
+<td> <font COLOR="000000" size=-1><tt>U = uuencoded</tt></font></td>
+<td> <font COLOR="cc3333" size=-1><tt>W = password file</tt></font></td>
+<td> <font COLOR="000000" size=-1><tt>X = exe</tt></font></td>
+<td> <font COLOR="336633" size=-1><tt>Z = compressed</tt></font></td>
+<td> <font COLOR="000000" size=-1><tt>. = binary</tt></font></td>
+<td> <font COLOR="000000" size=-1><tt>! = sound</tt></font></td>
+</tr></table>
+
+</body>
+</html>
+
+_EOM_
+
+close(MENU);
+
+}
+

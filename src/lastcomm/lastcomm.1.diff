@@ -1,0 +1,267 @@
+*** lastcomm.1.freebsd	Sun Jul 23 12:42:43 2000
+--- lastcomm.1	Sun Jul 23 12:42:43 2000
+***************
+*** 33,156 ****
+  .\"	$Id: lastcomm.1,v 1.3 1996/09/18 16:48:54 wollman Exp $
+  .\"
+  .Dd September 18, 1996
+! .Dt LASTCOMM 1
+  .Os BSD 3
+! .Sh NAME
+! .Nm lastcomm
+! .Nd show last commands executed in reverse order
+! .Sh SYNOPSIS
+! .Nm lastcomm
+! .Op Fl EScesu
+! .Op Fl f Ar file
+! .Op Ar command ...
+! .Op Ar user ...
+! .Op Ar terminal ...
+! .Sh DESCRIPTION
+! .Nm Lastcomm
+  gives information on previously executed commands.
+  With no arguments,
+! .Nm lastcomm
+  prints information about all the commands recorded
+  during the current accounting file's lifetime.
+! .Pp
+  The following options are available:
+! .Pp
+! .Bl -tag -width XXfXfileX -compact
+! .Pp
+! .It Fl E
+  Print the time the process exited.
+! .It Fl S
+  Print the time the process started.
+! .It Fl c
+  Print the amount of cpu time used by the process.
+! .It Fl e
+  Print the amount of elapsed time used by the process.
+! .It Fl s
+  Print the amount of system time used by the process.
+! .It Fl u
+  Print the amount of user time used by the process.
+! .It Fl f Ar file
+  Read from
+! .Ar file
+! rather than the default
+! .Pa /var/account/acct .
+! .El
+! .Pp
+! If no options are specified,
+! .Fl cS
+! is assumed.
+! If
+! .Nm
+! is invoked with arguments, only accounting entries with a
+! matching
+! .Ar command
+! name,
+! .Ar user
+! name,
+! or
+! .Ar terminal
+! name
+  are printed.
+  For example:
+! .Pp
+! .Dl lastcomm a.out root ttyd0
+! .Pp
+  would produce a listing of all the
+  executions of commands named
+! .Pa a.out
+  by user
+! .Ar root
+  on the terminal
+! .Ar ttyd0  .
+! .Pp
+  For each process entry, the following are printed.
+! .Pp
+! .Bl -bullet -offset indent -compact
+! .It
+  The name of the user who ran the process.
+! .It
+  Flags, as accumulated by the accounting facilities in the system.
+! .It
+  The command name under which the process was called.
+! .It
+  The amount of 
+  CPU
+! .Pq Fl c ,
+  wall
+! .Pq Fl e ,
+  system
+! .Pq Fl s ,
+  or user
+! .Pq Fl u
+  time used by the process (in seconds).
+! .It
+  The time the process started
+! .Pq Fl S
+  or exited
+! .Pq Fl E .
+! .El
+! .Pp
+  The flags are encoded as follows: ``S'' indicates the command was
+  executed by the super-user, ``F'' indicates the command ran after
+  a fork, but without a following
+! .Xr exec ,
+  .\" ``C'' indicates the command was run in PDP-11 compatibility mode
+  .\" (VAX only),
+  ``D'' indicates the command terminated with the generation of a
+  .Pa core
+  file, and ``X'' indicates the command was terminated with a signal.
+! .Sh FILES
+! .Bl -tag -width /var/account/acct -compact
+! .It Pa /var/account/acct
+! Default accounting file.
+! .El
+! .Sh SEE ALSO
+! .Xr last 1 ,
+! .Xr sigvec 2 ,
+! .Xr acct 5 ,
+! .Xr core 5
+! .Sh HISTORY
+  The
+! .Nm lastcomm
+! command appeared in
+! .Bx 3.0 .
+--- 33,170 ----
+  .\"	$Id: lastcomm.1,v 1.3 1996/09/18 16:48:54 wollman Exp $
+  .\"
+  .Dd September 18, 1996
+! .TH LASTCOMM 1
+  .Os BSD 3
+! .SH NAME
+! lastcomm
+! \- show last commands executed in reverse order
+! .SH SYNOPSIS
+! .B lastcomm
+! [\fB-EScestu\fR]
+! [\fB-f\fI file\fR]
+! [\fIcommand ...\fR]
+! [\fIuser ...\fR]
+! [\fIterminal ...\fR]
+! .SH DESCRIPTION
+! .B Lastcomm
+  gives information on previously executed commands.
+  With no arguments,
+! .B lastcomm
+  prints information about all the commands recorded
+  during the current accounting file's lifetime.
+! .PP
+  The following options are available:
+! .IP \fB-E\fR
+  Print the time the process exited.
+! .IP \fB-S\fR
+  Print the time the process started.
+! .IP \fB-c\fR
+  Print the amount of cpu time used by the process.
+! .IP \fB-e\fR
+  Print the amount of elapsed time used by the process.
+! .IP \fB-s\fR
+  Print the amount of system time used by the process.
+! .IP \fB-t\fR
+! Produce output in \fBtime machine\fR format: a portable, self-documenting
+! file format (see tm-format(5)) that contains all accounting record fields.
+! .RS
+! .IP \fBcommand\fR
+! The command name.
+! .IP \fBflags\fR
+! Flags accumulated by the accounting system.
+! .IP \fBuid\fR
+! The numerical user ID.
+! .IP \fBgid\fR
+! The numerical group ID.
+! .IP \fBtty\fR
+! The controlling terminal, given as \fIminor, major\fR device numbers
+! or given as ``__'' for processes without controlling terminal.
+! .IP \fBuser_time\fR
+! User-mode CPU time in seconds.
+! .IP \fBsystem_time\fR
+! Kernel-mode CPU time in seconds.
+! .IP \fBelapsed_time\fR
+! Elapsed time in seconds.
+! .IP \fBmemory_usage\fR
+! Amount of memory used (FreeBSD, BSD/OS, SunOS 4 and Solaris 2).
+! .IP \fBcharacter_io\fR
+! Character device I/O (SunOS 4 and Solaris 2).
+! .IP \fBblock_io\fR
+! Block device I/O (FreeBSD, BSD/OS, SunOS 4 and Solaris 2).
+! .IP \fBmajor_page_faults\fR
+! Page fault statistics (Linux).
+! .IP \fBminor_page_faults\fR
+! Page fault statistics (Linux).
+! .IP \fBexit_status\fR
+! Process exit status (Linux).
+! .RE
+! .IP \fB-u\fR
+  Print the amount of user time used by the process.
+! .IP "\fB-f\fR \fIfile\fR"
+  Read from
+! .I file
+! rather than the default \fB/var/account/acct\fR.
+! .PP
+! If no options are specified, \fB-cS\fR is assumed.
+! If \fBlastcomm\fR is invoked with arguments, only accounting entries with a
+! matching \fIcommand\fR name, \fIuser\fR name, or \fIterminal\fR name
+  are printed.
+  For example:
+! .PP
+! .DS
+! lastcomm a.out root ttyd0
+! .DE
+! .PP
+  would produce a listing of all the
+  executions of commands named
+! \fIa.out\fR
+  by user
+! \fIroot\fR
+  on the terminal
+! \fIttyd0\fR.
+! .PP
+  For each process entry, the following are printed.
+! .IP \(bu
+  The name of the user who ran the process.
+! .IP \(bu
+  Flags, as accumulated by the accounting facilities in the system.
+! .IP \(bu
+  The command name under which the process was called.
+! .IP \(bu
+  The amount of 
+  CPU
+! (\fB-c\fR),
+  wall
+! (\fB-e\fR),
+  system
+! (\fB-s\fR),
+  or user
+! (\fB-u\fR)
+  time used by the process (in seconds).
+! .IP \(bu
+  The time the process started
+! (\fB-S\fR)
+  or exited
+! (\fB-E\fR).
+! .PP
+  The flags are encoded as follows: ``S'' indicates the command was
+  executed by the super-user, ``F'' indicates the command ran after
+  a fork, but without a following
+! exec ,
+  .\" ``C'' indicates the command was run in PDP-11 compatibility mode
+  .\" (VAX only),
+  ``D'' indicates the command terminated with the generation of a
+  .Pa core
+  file, and ``X'' indicates the command was terminated with a signal.
+! .SH FILES
+! /var/account/acct, Default accounting file.
+! .SH SEE ALSO
+! last(1),
+! sigvec(2),
+! acct(5),
+! core(5)
+! tm-format(5)
+! .SH HISTORY
+  The
+! .B lastcomm
+! command appeared in 3.0BSD.

@@ -1,0 +1,179 @@
+.TH LAZARUS 1
+.SH NAME
+.B lazarus - "create structure from unstructured data"
+.SH SYNOPSIS
+.B lazarus
+[
+.B \-1bBdhHtT
+]
+[
+.B \-D
+directory
+]
+[
+.B \-H
+directory
+]
+[
+.B \-w
+directory
+]
+.SH DESCRIPTION
+.I lazarus
+tries to revive things that have died and gone into the 
+binary spirit world... deleted files, data in memory, swap, etc.
+.PP
+Lazarus reads and examines data, and if the data passes certain criteria 
+marks it as a known or unknown block of information and saves it in
+a data directory.
+Saved data blocks can be examined later with additional tools or via
+a browser if lazarus is run with the 
+.I -h
+(HTML) option.
+.PP
+The output is a set of characters (or HTML color-coded chars, see
+lazarus.cf) that correspond to the type of blocks that lazarus sees.
+In addition it creates files that contain the data in the $blocks 
+directory (this value is modified with the -B flag or by changing the
+default values in 
+.I lazaruz.cf,
+the lazarus configuration file.
+Consecutive blocks of the same character type means that 
+it has seen a run of blocks that it strings together and stuffs in 
+the same $blocks/* output file.  The initial character of a run will 
+always be a capital letter (if possible; some types are denoted by
+punctuation marks), followup letters in the same run will be lowercase.
+For instance, if it outputs "Cc", it means that the first block and 
+second blocks of the data found are suspected to be C programs.  
+A "." represents unrecognized binary blocks of data.
+
+To make the output stay in semi-manageable size, it does a logarithmic
+compression of the output (base 2).  The first character represents
+one block or less of data, the 2nd from 0-2 blocks, the 3rd 0-4, the 
+fourth 0-8, etc.  Blocks are typically, but not always (and are user 
+definable) 1024 bytes.
+
+ Typical output might look like:
+
+   .....T.Ttt..T.Tt.Tttt.Tttt.Ttttt.Ccc.....L..Lll....
+   Llllllll....T.Mmmmmm..TMmmmm....LlllllllllllMmmmm..
+   [...]
+
+The colors (corresponding to the netscape color scheme) and characters 
+for recognized text and files are kept in the 
+.I lazarus.cf
+file, and are:
+
+type   value       color                 meaning
+.br
+t     777777       gray                  unresolved text
+.br
+f     ff0000       bright red (alarm)    sniffer stuff
+.br
+m     0066ff       blue                  mail
+.br
+q     6633ff       pale blue             mailq files
+.br
+s     6699ff       purply                emacs/lisp
+.br
+p     cc6666       greenish              program file
+.br
+c     336666       green                 C code
+.br
+h     ff99ff       light purple          HTML
+.br
+w     cc3333       reddish               password file
+.br
+l     cc9900       light brown           log file
+.br
+
+Binary files are represented by:
+
+type   value       color                 meaning
+.br
+.     000000       black                 unresolved stuff
+.br
+o     bbbbbb       light grey            null block
+.br
+r     000000       black                 removed'd block
+.br
+x     000000       black                 binary exe
+.br
+e     d9d9i9       gold                  ELF
+.br
+i     238e68       greenish              JPG/GIF
+.br
+a     d19275       black                 cpio/tar/etc
+.br
+z     336633       greenish              compressed
+.br
+!     000000       black                 audio
+.br
+
+.PP
+
+.SH OPTIONS
+.TP 8
+.B \-1
+process byte-style, one byte at a time, rather than one
+block of data at a time.  Not generally recommended,
+perhaps useful for looking at memory, etc.
+
+.TP 8
+.B \-b
+don't write unrecognized binary data blocks (writes by default)
+
+.TP 8
+.B \-B
+don't write ANY binary data blocks (writes by default)
+
+.TP 8
+.B \-d
+turn debug on (not recommended ;-))
+
+.TP 8
+.B \-h
+emit HTML code rather than ASCII text.  It outputs to three
+files - the data file ($ARGV[0]) + .html, .menu.html,
+and .frame.html.  You generally want to look at the
+$ARGV[0].frame.html file (with your browser) initially.
+
+.TP 8
+.B \-H directory
+save the HTML frames code in this directory.  Only useful with -h flag.
+
+.TP 8
+.B \-D directory 
+write the data blocks into this directory name
+(hey, running out of letters here, cut me slack!)
+
+.TP 8
+.B \-t
+don't write unrecognized text data blocks (writes by default)
+
+.TP 8
+.B \-T
+don't write ANY text data blocks (writes by default)
+
+.TP 8
+.B \-w directory 
+use this directory to write all the HTML code.
+Meaningless unless used with -h!
+
+
+
+
+.SH "SEE ALSO"
+.BR unrm (1)
+.BR lazarus.cf
+.SH LICENSE
+Distributed under the details found in the
+.I COPYRIGHT
+file found in the root directory of The Coroner's Toolkit.
+.SH AUTHOR(S)
+.na
+.nf
+dan farmer
+zen@fish.com
+EarthLink
+

@@ -1,0 +1,146 @@
+TCT programming guidelines
+
+The TCT software is the result of an evolutionary process. This is
+unlike our previous collaboration, SATAN, which we designed, built,
+and threw away when the first version worked. The released version
+of SATAN was built and documented from scratch in only three months.
+
+As we wrote the TCT software we made up and re-discovered several
+guidelines along the way.  By the time we finished the first TCT
+release we had a much better idea of how the software should have
+been written.  However, there was no time left to take the SATAN
+approach and redo everything.
+
+Since there was no time to rewrite TCT from scratch, some of the
+guidelines are only lessons learned, not lessons implemented.
+Examples of this are the guidelines for making software easy to
+test, and for making software easy to port to other environments.
+The next time we write more software we'll put more time into the
+design and requirements in the beginning, like with all quality
+software.
+
+Compute MD5 hashes over all data
+
+In order to establish data authenticity, the grave-robber computes
+MD5 hashes over all information that it collects. The hashes are
+intended to be stored separately from the corresponding data.
+Sometimes individual files have their MD5 hash stored in files
+named "filename.md5".  Sometimes the MD5 hashes of multiple files
+are kept in one file. An example is the MD5_all file which has MD5
+hashes over all collected information. This hybrid strategy is the
+result of changing insights as the software evolved.
+
+Time stamp all command output
+
+The time of execution of a data collection command is recorded
+together with the command output, either as a date record at the
+beginning of the output file, or as part of the output file name.
+
+Do not invoke a shell for command execution
+
+As the TCT collects data, its actions depend on what information
+it finds. Whenever a program's behavior depends on untrusted data
+one has to be really careful. For example, not only file contents
+are potentially harmful, even file names can be a source of trouble.
+In order to avoid security problems with command-line parameters,
+the TCT never invokes a shell for command execution.  Perl programs
+use a small command.pl module for command execution and I/O
+redirection.  For similar reasons no collected data is given to
+the Perl eval() primitive.
+
+Log all external command execution
+
+The TCT maintains a record of the commands that it executes. When
+all data gathering activity is implemented by external commands,
+as described in a guideline below, then the logging of external
+commands provides a record of the data collection procedure.  TCT
+logging is implemented by a small logger.pl perl module that logs
+each command invocation with a date stamp to a file "coroner.log".
+
+Impose a time limit on external commands
+
+This should be an obvious requirement. The TCT uses an improved
+version of the SATAN timeout command in order to bound the time
+that an external command can run. If the time limit is exceeded
+the command is killed, together with all its child processes.  The
+coroner.cf file defines timeouts of varying lengths.
+
+Use an external process for data collection
+
+There are numerous traps that a data collection process can run
+into. A process might become blocked when it attempts to access a
+dead file server, or when it attempts to read from a FIFO.  And
+deadlock is not the only trap:  a process might go on forever when
+collecting data from a corrupted file system, when reading a file
+that is linked to /dev/zero, or when receiving an infinite stream
+of data from a corrupted network server.
+
+Recovering from the middle of an aborted data collection operation
+can be incredibly difficult.  For this reason data collection is
+preferably implemented by time limited external commands.
+
+The grave-robber program does not follow the principle of external
+data collection when it walks the file system to gather file
+attribute status information.  This part of the data collection
+procedure should probably be implemented by an external command.
+
+Delegation of data collection to external commands has benefits
+besides robustness: it enforces standard interfaces, which makes
+it easier to use the same program for different applications, and
+it facilitates testing a large system one small unit at a time.
+
+Where to place temporary files
+
+Temporary files should not be placed in the current directory, for
+when program or system execution is interrupted the files may be
+left in undesirable locations for the user to clean up.  Creating
+a temporary directory in the grave-robber's data directory and
+using that as a scratch space is a good idea - if this scratch
+space is not on the same device as the media and system being
+investigated that's even better.
+
+Prepare for testing
+
+The TCT is a complex system. In order to make the software work on
+a variety of systems it must be possible to test small subsets of
+functionality.  Normally one facilitates testing by designing a
+large system as a collection of smaller units that can be tested
+individually.
+
+If unit testing is not possible (the software that implements a
+feature can only be tested as part of the aggregate system) then
+the aggregate software system must provide a means to exercise
+features individually.
+
+Many grave-robber data collection routines cannot be tested
+individually.  Instead, they are tested as part of the aggregate
+software system by selecting the appropriate command-line micro
+option.
+
+Allow system-dependent code only in system-dependent modules
+
+So you have this "easy" program with if(some OS) at various places
+throughout the code.  Now consider that you have to add support
+for another OS. You have to go over the entire program with a fine
+comb, and locate all those "easy" pieces of code that have an
+if(some OS) in them.  Then you have to add little bits of code here
+and there to those "easy" pieces of code, so that the new OS ends
+up in the correct branches of those if(some OS) conditionals.
+
+So you end up changing code that already works for existing systems.
+You have to do a lot of testing and fixing to be sure that the
+support for the EXISTING systems still works as before.  You have
+just wasted a lot of time to test and fix code that already worked!!!
+
+A more scalable approach is to provide a porting layer, which
+consists of one or more system-specific modules for each supported
+system.  Each system-specific module provides a standard interface
+to the application. The application itself does not have to worry
+about system dependencies. Adding a new OS means adding a new system
+dependent module, WITHOUT changing the existing application.
+
+The grave-robber program was partially fixed in this respect. But
+there still is some if(this system) code that may break the next
+time when a new system needs to be added. The present abstraction
+layer does not provide a truly generic interface, because it still
+has system types in the subroutine names.

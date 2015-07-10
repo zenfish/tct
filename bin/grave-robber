@@ -1,0 +1,522 @@
+#!/usr/bin/perl5
+
+#
+#  Usage: $0 [-filmnpstvDEFIMOPVS] [-b body_file] [-c corpse_dir] 
+#	     [-d data_directory] [-e error_file] [-o os_type]
+#	     [directory_name(s)]
+#
+#  If no dirnames are given, assume root dir ("/")
+#
+#  Rob the grave/site 'o' the [gc]rime.  Many options...
+#
+#  GENERAL:
+#
+#	-b body		bodyfile - use "-" for stdout
+#
+#	-c corpse_dir	a dead, not live, system (perhaps a mounted disk?)
+#			Prepend all stuff with corpse_dir... e.g. -c /foo
+#			would make it look in /foo/etc/passwd for the passwd
+#			file, etc.
+#
+#	-d dir		the data directory; overrides $DATA/hostname
+#
+#	-e file		redirect the stderr stream to this file
+#
+#	-o os_type	to be used with the -c flag, to tell the grave-robber
+#			what sort of corpse you have.  *Required* with the
+#			-c flag!!!
+#
+#	-v		verbose
+#
+#	-D		debug.  You don't want to use this.  Really...
+
+# Micro DATA COLLECTION
+
+#
+#	-F		collect files from the filesystem as the file
+#			walking moves through.  Copies things from the
+#			$conf_pattern variable (set in coroner.cf, and
+#			usually including REGEXPs like "*.cf", "*.conf", etc.)
+#			Implies -m (lstats() are done anyway, so we save them)
+#
+#	-i		collect dead inode data
+#
+#	-I		capture running process based on their inodes/proc
+#			stuff.  Try copying from proc first, and then
+#			tries icat (does both in case can read inodes but
+#			not /proc).  Requires a live system.
+#
+#	-l		do the "look@first" stuff - process the path, 
+#			look at files in the look@first dir.  Requires a
+#			live system.
+#
+#	-m		capture MACtime (and generic lstat()) data.
+#
+#	-M		do md5's of files - implies -m (lstats() are done 
+#			anyway, so we save them)
+#
+#	-O		save files that are open but have been deleted from
+#			the disk (often config files, executables, etc.)
+#			Requires a live system.
+#
+#	-p		Copy process memory to file with the pcat command.
+#			some systems have trouble with this, so beware!
+#			Requires a live system.
+#
+#	-P		run the process commands - ps, lsof, etc.  Requires 
+#			a live system.
+#
+#	-s		run the general Shell commands on the host; this 
+#			includes network & host info gathering, such as
+#			netstat, df, etc., doesn't include process (ps/lsof)
+#			commands (see -P)
+#
+#	-S		save files listed in "save_these_files" (conf dir)
+#
+#	-t		gather trust information.
+#
+#	-V		do some mucking around in dev (deV?).  I'm *way* 
+#			out of letters now...
+#
+
+# Macro DATA COLLECTION
+
+#
+#	-f		Fast/quick capture - try to avoid the filesystem;
+#			no MD5's, stat(), expensive stuff... doesn't
+#			make sense with the -m option.  Implies -P, -s,
+#			and -O
+#
+#	-n		Default data collection.  Sets -i, -I, -m, -M, -P,
+#			-s, -t, -l, -O, -F, -S, -V.
+#
+#	-E		Everything collected that it can, including dangerous
+#			ops.  Currently that only adds -p to the default.
+#
+
+#
+# Many more options are changed by modifying the "coroner.cf" config file
+#
+
+#
+#  this will create a link in the data dir to the appropriate - current - 
+# data dir
+#
+$running_under_grave_robber = 1;
+
+# unbuffer the output...
+$| = 1;
+
+#
+#  Need to do the options/usage first, they affect other requires
+# and such...
+#
+
+# if someone really wants to they can set this here...
+if ($ENV{'TCT_HOME'}) { $TCT_HOME = $ENV{'TCT_HOME'}; }
+else {
+$TCT_HOME = "";
+	}
+
+@INC = ("$TCT_HOME/lib", "$TCT_HOME/conf", @INC);
+
+#
+# get user input on what the program should do...
+#
+require "getopts.pl";
+require "savecore.pl";
+
+$usage = "Usage: $0 [-filmnpstvDEFIMOPSV] [-b bodyfile] [-c corpse_dir] [-d data_directory]\n\t[-e error_file] [-o OS] [directory_name(s)]\n";
+
+&Getopts("b:c:d:e:o:filmnpstvDEFIMOPVS") || die $usage;
+
+#
+# macro options... imply lots of others
+#
+if ($opt_E) {
+	$opt_i=$opt_I=$opt_m=$opt_M=$opt_P=$opt_s=$opt_t=$opt_l=$opt_O=$opt_F=$opt_S=$opt_V=$opt_p=1;
+	}
+if ($opt_f) {$opt_P = $opt_s = $opt_O = 1;}
+
+#
+# default - no micro/macro options at all, or -n flag
+#
+if ($opt_c&&!$opt_l&&!$opt_M&&!$opt_E&&!$opt_f&&!$opt_i&&!$opt_I&&!$opt_m&&!$opt_p&&!$opt_P&&!$opt_s&&!$opt_t&&!$opt_m&&!$opt_O&&!$opt_F&&!$opt_S&&!$opt_V) {
+	$opt_i=$opt_I=$opt_m=$opt_M=$opt_s=$opt_t=$opt_F=$opt_S=$opt_V=1;
+	}
+if ($opt_n||(!$opt_l&&!$opt_M&&!$opt_E&&!$opt_f&&!$opt_i&&!$opt_I&&!$opt_m&&!$opt_p&&!$opt_P&&!$opt_s&&!$opt_t&&!$opt_m&&!$opt_O&&!$opt_F&&!$opt_S&&!$opt_V)) {
+	$opt_i=$opt_I=$opt_m=$opt_M=$opt_P=$opt_s=$opt_t=$opt_l=$opt_O=$opt_F=$opt_S=$opt_V=1;
+	}
+
+#
+# set the data & corpse dirs.  Do this here because the config files need
+# variables ($DATA & $CORPSE) to be set.
+#
+if (!$opt_d) {
+        $DATA     = "$TCT_HOME/data";
+        }
+else {
+	# die "The -d option requires a directory with a full path name\n" 
+	# 	unless $opt_d && $opt_d =~ /^\//;
+	die "The -d option requires a directory as an argument\n" 
+		unless $opt_d;
+	$DATA = $opt_d;
+	}
+#
+# Append trailing / after mkdir, to work around BSD/OS limitations.
+#
+mkdir($DATA, 0700);
+die "Can't create data directory $DATA\n" unless !$! || -d $DATA;
+$DATA = $DATA . '/';
+
+if ($opt_c) {
+	die "Must use the -o option with the -c option\n" unless $opt_o;
+	$CORPSE = $opt_c;
+	# want a slash at the end of this, makes processing easier later
+	$CORPSE =~ s@([^/])$@$1/@;
+	print "The corpse is at... $CORPSE...\n" if $debug;
+
+	#
+	#  Used for various commands that use alternate core/kernel files,
+	# like ps, nfsstat, etc.
+	#
+	&setup_savecore();
+	}
+
+#
+# grab all the config data
+#
+require "coroner.cf";
+require "command.pl";
+require "grave-robber.cf";
+require "maj_min_walk.pl";
+require "tm_misc.pl";
+require "body_init.pl";
+
+#
+#  make some dirs, set some vars, etc...
+#
+&grave_robber_init();
+
+#
+# process more options...
+#
+
+if ($opt_D) { $debug     = 1; }
+if ($opt_e) { $error_log = $opt_e; }
+
+if ($opt_o) {
+	die "The -o option should only be used with the -c option\n"
+		unless $CORPSE;
+	$OS        = $opt_o;
+	}
+
+if ($opt_v) { $verbose   = 1; }
+
+die "The -l,-P,-p, & -O options cannot be used with the -c option\n"
+	if ($CORPSE && ($opt_l||$opt_P||$opt_p||$opt_O));
+
+#
+# we want to examine the toolkit if we're doing everything.  Most
+# are controlled by micro options and if we're looking at a corpse
+# or not:
+#
+# process stuff - no inode & pcat stuff
+if ($opt_P) {
+	$do_ps   = 1;
+	$do_dev = 1;
+	# $do_proc = 1;
+	# $do_icat = 1;
+	}
+if ($opt_l) { $do_first_looks = 1; }
+# -p requires that ps be used as well
+if ($opt_p) { $do_ps = $do_pcat = 1; }
+if ($opt_i) { $do_free_inodes = 1; }
+if ($opt_I) { $do_dev = $do_proc = $do_icat = 1; }
+if ($opt_t) { $do_trust = 1; }
+if ($opt_O) { $do_save_open = 1; }
+if ($opt_F) { $do_file_collect = $do_file_walk = 1; }
+if ($opt_m) { $do_mtimes = $do_file_walk = 1; }
+if ($opt_M) { $do_md5 = $do_mtimes = $do_file_walk = 1; }
+if ($opt_s) { $do_shell = 1; }
+if ($opt_S) { $do_filesave = 1; }
+if ($opt_V) { $do_dev = 1; }
+
+# make the various data dirs for stashing results
+
+mkdir($DATA, 0700);
+mkdir($COMM_OUT, 0700);
+mkdir($TRUST, 0700);
+
+die "Can't open STDERR (exit code $!)\n" unless open(STDERR, ">$error_log");
+die "Can't open STDIN (exit code $!)\n" unless open(STDIN, "</dev/null");
+
+# print "DIRS ARE: $DATA, $COMM_OUT, $TRUST\n";
+
+require "crunch.pl";
+require "pass.cache.pl";
+require "misc.pl";
+require "tree.pl";
+require "ps_spy.pl";
+require "hostname.pl";
+require "save_the_files.pl";
+require "system_stubs.pl";
+require "suck_free_inodes.pl";
+require "trust.pl";
+require "dig-sig.pl";
+require "ostype.pl";
+require "proc.pl";
+
+#
+#  Put in the right maj/min stub code... also a sanity check - did
+# they type make/reconfig?  This will squawk, so always run it.
+#
+&create_maj_min_stubs();
+
+#
+# what sort of system are we...?  Very simple check...
+#
+&determine_os();
+
+#
+# this is where one might capture all the memory... not done yet
+#
+# &capture_mem() - not written yet, don't try to uncomment it ;-)
+
+#
+# we'll be putting all the conf files here; get the vault ready
+#
+&prepare_config_vault();
+
+#
+# do the tools you use first, so you can examine some stuff while grave-rob
+# is looking around.
+#
+&do_first_looks() if $do_first_looks;
+
+#
+# suck in all process info
+#
+&suck_lsof() if $do_ps || $do_icat;
+&suck_ps()   if $do_ps;
+
+#
+#  Highly advised, but may freeze up some shells and/or X stuff.  YMMV.
+#
+# YOU MUST CALL either suck_lsof() or suck_ps() before calling this -
+# YOU MUST CALL either suck_lsof() or suck_ps() before calling this -
+# YOU MUST CALL either suck_lsof() or suck_ps() before calling this -
+#
+#		- or it will do nothing!
+#
+&suck_proc_pcat() if $do_pcat;
+
+#
+#  Grab the maj/min numbers for the /dev dir.  Normally this would be
+# turned off for -f, but if we want to icat stuff we need this... also
+# this should really be done later on (OOV), but icat needs them.
+#
+&process_dev_dir("$DEVICE_DIR") if $do_dev;
+
+#
+#   This also requires suck_lsof() or suck_ps().  Saves the executable 
+# of currently running programs that have been deleted from the disk.
+#
+&save_open_files() if $do_save_open;
+
+#
+#   This wants something that has process id's to be run before it.
+# Saves the executable of currently running programs using /proc & icat
+#
+if ($do_proc || $do_icat) {
+	&cp_all_from_proc() if ($proc_fs || $do_proc);
+	&suck_proc_icat() if $do_icat;
+	}
+
+#
+# Grab all of the inodes info from unallocated files
+#
+&suck_free_inodes() if $do_free_inodes;
+
+#
+# Load the password/group stuff
+#
+&'load_passwd_info(0,$PASSWD) if -e $PASSWD;
+&'load_group_info(0,$GROUP) if -e $GROUP;
+
+#
+# grab network and host info
+#
+&suck_netinfo()  if $do_shell;
+&suck_hostinfo() if $do_shell;
+
+#
+#  Is the network interface opened by a program?   Doesn't work, more later.
+#
+# &check_nit();
+
+#
+# do any processes have tty's that aren't supposed to?
+#
+# Get the [cam]times & strings on dirs listed
+
+#
+# if no args were given, assume root
+#
+if ($#ARGV < 0) {
+	$ARGV[0] = "$CORPSE/";
+	}
+
+#
+
+if ($do_file_walk) {
+	for (@ARGV) {
+		print "GOING INTO PROCESS DIR $_...\n" if $debug;
+		&process_dir($_, 1);
+		}
+	}
+
+#
+# this is where one might dd all the disks...
+#
+# &grab_disks() - not written yet, don't try to uncomment it ;-)
+
+#
+#  If don't grab the disk, grab individual, important files...
+#
+
+&process_files_to_save() if $do_filesave;
+
+#
+#  Various information, related to trust in some way - rhosts, cron, at, etc.
+#
+mkdir("$DATA/user_vault", 0700);
+&grab_user_trust_files() if $do_trust;
+&grab_user_time_trust()  if $do_trust;
+&grab_window_trust()     if $do_trust;
+
+#
+# Close the vault.  Also MD5's all the files in the data dir.
+#
+&close_config_vault();
+
+#
+#  All the grave-robber initialization stuff - making dirs, setting
+# vars, etc., goes here.
+#
+
+sub grave_robber_init {
+
+print "going into grave_robber_init()\n" if $verbose;
+
+#
+#  First thing we do is initialize the log... all commands executed get
+# logged here
+#
+&log_init_path($logfile);
+
+$LIB    = "$TCT_HOME/lib";
+$BIN    = "$TCT_HOME/bin";
+$ETC    = "$TCT_HOME/etc";
+$CONFIG = "$TCT_HOME/conf";
+
+if (!$TCT_HOME) {
+	die "Can't find TCT_HOME - did you run reconfig?\n";
+	}
+
+if (!-f "$BIN/file") {
+	die "Can't find our \"$BIN/file\" command  - did you type \"make\" first?\n";
+	}
+
+require "logger.pl";
+require "command.pl";
+require "date.pl";
+
+#
+# Who are we?
+#
+require "hostname.pl";
+$hostname = &hostname();
+chop($hostname);
+
+$pretty_date = &get_date;
+
+$DATA     = "$DATA/$hostname" unless $opt_d;
+
+#  The file that stores all that stat & md5 info
+if ($opt_b) { $body = $opt_b; }
+else	    { $body = "$DATA/body"; }
+
+#
+# user trust files
+#
+$TRUST = "$DATA/trust";
+
+#
+# user-level command output generally goes here
+#
+$COMM_OUT     = "$DATA/command_out";
+
+#
+#   icat'd files go here... two types, those that have been deleted and
+# are still running and the ones that are simply running but are still
+# on the disk.  Also list where files copied from /proc go
+#
+$DELETED_FILES   = "$DATA/removed_but_running";
+$ICAT_OUT        = "$DATA/icat";
+
+$PROC_FILES      = "$DATA/proc";
+
+#
+#  The device dir...
+#
+$DEVICE_DIR = "$CORPSE/dev";
+
+# the major/minor database file
+$maj_min_db = "$COMM_OUT/major_minor";
+
+#
+# kill and recreate a symlink to the data dir
+#
+unlink($DATA) unless $opt_d;
+mkdir("$DATA\_$pretty_date", 0700) unless $opt_d;
+symlink("$DATA\_$pretty_date", $DATA) unless $opt_d;
+
+#
+#  Are we a /proc kinda place?
+#
+$proc_fs = &proc();
+
+#
+# put headers in the body & body.S files for mactime
+#
+&body_init();
+
+#
+#  we usually carry around the alternate magic file...
+#
+if (-f "$ETC/magic") { $magic_file = "$ETC/magic"; }
+        else {
+        die "Can't find the /etc/magic file\n" unless (-f "/etc/magic");
+        $magic_file = "/etc/magic";
+        warn "Couldn't find $ETC/magic, switching over to $magic_file\n";
+        }
+
+}
+
+#
+#  does a system have a proc file system?  Returns 0 if so, !0 if no
+#
+
+sub proc 
+{
+
+$proc_fs = (-e "/proc" && &command_to_string("$DF", "/proc") !~ /\/dev\//);
+
+print "has proc!\n" if $proc_fs && $debug;
+print "no proc!\n" if !$proc_fs && $debug;
+
+return $proc_fs;
+
+}
+

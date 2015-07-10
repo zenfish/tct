@@ -1,0 +1,52 @@
+.TH MAJOR_MINOR 1 
+.ad
+.fi
+.SH NAME
+major_minor
+\-
+PERL start engine
+.SH SYNOPSIS
+.na
+.nf
+\fBeval\fR `\fBmajor_minor\fR`;
+
+\fB$major_number = &dev_major($devnum);\fR
+
+\fB$minor_number = &dev_minor($devnum);\fR
+.SH DESCRIPTION
+.ad
+.fi
+\fBmajor_minor\fR emits two PERL routines, \fBdev_major\fR()
+and \fBdev_minor\fR() that take a device number as returned
+by \fBstat\fR() and that break the number up into the device
+major and minor number, respectively.
+
+For example, the FreeBSD 2.2 output is:
+
+.DS
+sub dev_major { local($dev) = @_; ($dev >> 8) & 0xff; };
+
+sub dev_minor { local($dev) = @_; ($dev & 0xffff00ff); };
+
+1;
+.DE
+
+In principle, this information could be obtained by parsing
+system include files, but a little C program is more robust.
+.SH HISTORY
+.na
+.nf
+.fi
+.ad
+A similar trick was used first with the SATAN program.
+.SH LICENSE
+.na
+.nf
+This software is distributed under the IBM Public License.
+.SH AUTHOR(S)
+.na
+.nf
+Wietse Venema
+IBM T.J. Watson Research
+P.O. Box 704
+Yorktown Heights, NY 10598, USA

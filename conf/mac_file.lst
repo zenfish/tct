@@ -1,0 +1,76 @@
+#
+# List mostly stolen from COPS... anything here is a no-no if it
+# is either C or M time'd
+#
+/
+/etc	
+/usr	
+/bin	
+/dev	
+/usr/bin
+/usr/etc
+/usr/adm
+/usr/ucb
+/usr/sbin
+/usr/lib
+/usr/include
+/usr/spool
+/usr/spool/mail
+/usr/spool/news
+/usr/spool/uucp
+/usr/spool/at
+/usr/local
+/usr/local/bin
+/usr/local/lib
+/usr/users
+/Mail	
+
+/etc/security	
+/\..*		
+
+/etc/.*		
+
+/usr/ucb/.*
+/usr/sbin/.*
+/bin/.*		
+/usr/bin/.*	
+/usr/etc/.*	
+/usr/adm/.*	
+/usr/lib/.*	
+/usr/include/.*	
+/usr/local/lib/.*
+/usr/local/bin/.*
+
+# NIS junk...
+/usr/etc/yp.*	
+/usr/etc/yp/.*	
+/var/yp/.*	
+
+#
+# cron, etc?
+/var/spool/cron/crontabs/.*
+/var/spool/cron/atjobs/.*
+
+# individual files:
+/usr/lib/crontab
+/usr/lib/aliases
+/usr/lib/sendmail
+/usr/spool/uucp/L.sys
+
+#  NEVER want these writeable/readable!
+/dev/kmem	
+/dev/mem	
+
+#   Optional List of assorted files that shouldn't be
+# write/readable (mix 'n match; add to the list as desired):
+/usr/adm/sulog	
+/\.netrc		
+/etc/btmp	
+/etc/securetty	
+/dev/drum	
+/dev/nit	
+/etc/sunlink/dni/rc
+/usr/kvm/krash
+
+.*\.h
+.*\.c

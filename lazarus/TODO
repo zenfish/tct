@@ -1,0 +1,31 @@
+
+o	implement and doc different ways of popping up windows
+
+o	End of blocks - flag that somehow when goto "next" or "previous"
+	blocks.
+
+o	Better recognition scheme.  Recognizing various file formats
+and reading in the data based on that, using weighting methods (multiple
+variables combining to a better answer, rather than simple regexps), 
+a better recognition process for binary files (recognizing utmp, wtmp, etc.),
+etc.
+
+o	Improved joining scheme.  Currently lazarus is especially inept 
+analyzing uncompressed archives (tar, cpio, etc.) and certain types of 
+binary data.  In the case of archives it will recognize the head but has 
+no concept as to how large the file is, and will usually miscategorize the
+follow-up data blocks into what the individual pieces appear to be and not 
+as part of the larger archive.  For instance, a tar file filled with C code
+and mail might look like (A = archive, C = C code, M = mail):
+
+	AccMmCcccM
+
+Similarly, since no format information is used to analyze data files,
+even if available (such as with GIF, JPG, etc.) lazarus can capture data 
+beyond the end of the file - or worse, take a (potentially quite
+large) chunk of data and concatenate it to the image file.  The image
+will probably display just fine (image renderers know how large the data
+is by being smart about it), but without telling you about the extra
+data on the end.  In this way data can be lost and easily overlooked
+without ever being seen.
+

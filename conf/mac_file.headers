@@ -1,0 +1,6 @@
+#
+# List mostly stolen from COPS... anything here is a no-no if it
+# is either C or M time'd
+#
+.*\.c
+.*\.h

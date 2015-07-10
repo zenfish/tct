@@ -1,0 +1,52 @@
+.TH TM-FORMAT 1
+.ad
+.fi
+.SH NAME
+tm-format \- Time Machine file format
+.SH DESCRIPTION
+.ad
+.fi
+This document presents a portable, self-documenting and extensible
+file format.  The general format is lines of text, each line
+consisting of one or more fields. Adjacent fields are separated by
+one `|' (pipe) character.  Non-printable characters, the newline,
+`%' (percent), and `|' (pipe) characters are represented by their
+hexadecimal equivalent as `%NN'.
+.SH HEADER SECTION
+A file in time-machine format starts with a two-line header that
+specifies the origin of the data. The first line contains the names
+of origin attributes.  The second line lists the actual values of
+those attributes in the order of the attribute names. Examples of
+recommended origin attributes are:
+.IP class
+A string that specifies the type of data. Usually this is named
+after the tool that collected the information.
+.IP host
+A string with the unique name of the host on which the data was
+collected.
+.IP start_time
+Start of data collection (UNIX time in seconds).
+.IP end_time
+End of data collection (UNIX time in seconds).
+.SH DATA SECTION
+The remainder of the file consists of one line with data attribute
+names, followed by zero or more lines, each line listing data
+attribute values in the order of the data attribute names.
+.PP
+The choice of data attribute names and of their value types is
+entirely up to the application.  The implementor is encouraged to
+consistently use generic attribute names such as `host' and `user',
+and to consistently use UNIX time coordinates for all time information,
+so that one can use generic tools to correlate files from different
+sources without having to write application-specific software.
+.SH LICENSE
+.na
+.nf
+This software is distributed under the IBM Public License.
+.SH AUTHOR(S)
+.na
+.nf
+Wietse Venema 
+IBM T.J. Watson Research 
+P.O. Box 704 
+Yorktown Heights, NY 10598, USA

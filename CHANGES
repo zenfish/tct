@@ -1,0 +1,991 @@
+Sat Aug 29 2009
+
+o	grave-robber did not record the initial directory in the body file.
+
+o	Bit-rot: FreeBSD 7 support, including ``struct acct'' changes.
+
+o	Bit-rot: lastcomm format strings.
+
+Sun Jan 11 20:01:27 EST 2009
+
+o	Bit-rot: OpenBSD 4.x support (still TODO: file system tools).
+
+Thu Jun  7 10:54:44 EDT 2007
+
+o	Bit-rot: FreeBSD 6.x support.
+
+Mon Apr  9 09:36:31 EDT 2007
+
+o	Bit-rot: the 64-bit workaround for LINUX lseek() is no
+	longer needed, and it didn't compile on some systems.
+
+Thu Jan 11 16:10:29 EST 2007
+
+o	Bugfix: the timeout command always reported zero exit status
+	after voluntary child process exit.
+
+Mon Jun 26 18:44:17 EDT 2006
+
+o	Bit-rot: update #include statements because code either
+	no longer compiled or compiled with warnings.
+
+Fri Mar 17 09:25:57 EST 2006
+
+o	Bit-rot: update #include statements because code either
+	no longer compiled or compiled with warnings.
+
+Tue Jan  6 12:25:32 EST 2004
+
+o       Workaround: mactime treated "," as a special character in
+	file names, now it's 0xff.
+
+o	Support for ext[23]fs inode file sizes > 32bits.
+
+o	Bugfix: ils file sizes larger than unsigned long.
+
+Tue Oct 14 18:23:49 EDT 2003
+
+o       pcat now fully supports FreeBSD systems that do not have
+	/proc mounted (it's no longer mounted by default with
+	FreeBSD 5). pcat tries to use /proc if it can, and uses
+	ptrace() and gropes kernel memory if it has to.  Operation
+	without /proc requires super-user privileges.
+
+Thu Oct  2 09:14:00 EDT 2003
+
+o       Completed support for UFS1 and UFS2 in FreeBSD 5.x. However,
+	the pcat command still requires that the /proc file system
+	is mounted. This will be fixed later.
+
+Sat Aug 30 19:21:29 EDT 2003
+
+o	Preliminary FreeBSD 5.0 port. UFS2 support is still to be done.
+
+Fri Aug  1 10:07:39 EDT 2003
+
+o	RedHat 9.0 fix by Florin Andrei for the file command.
+
+Sat Oct  5 13:47:29 EDT 2002
+
+o	Restored tctutils compatibility, which broke with 20020916.
+
+Mon Sep 16 14:39:09 EDT 2002
+
+o       The lowest inode examined is now the lowest possible inode
+	number instead of ROOTINUM.
+
+Fri Mar 22 14:41:32 EST 2002
+
+o	Added support for OpenBSD 3.0.
+
+Wed Dec 12 13:21:00 EST 2001
+
+o	tm_print() and tm_string() did unnecessary %HEX expansion
+	of $ and ^ characters (Philippe Bourgeois).
+
+o       mactime mis-sorted dates before/after early September 2001
+	(Philippe Bourgeois, Brian Carrier).
+
+Thu Oct  4 15:48:42 EDT 2001
+
+o       Linux can handle files > 2Gbyte, but only if we specify
+	extra compiler flags.
+
+o	Solaris 8/64bit needs an extra include file in pcat.c.
+
+Sun Sep  9 17:23:13 EDT 2001
+
+o       Discovered to my horror that unrm on ext2fs can have an
+	off-by-one error when testing a bit flag in the data block
+	allocation bitmaps - and this problem is dependent on the
+	Linux version being used.
+
+o       Made the timeout command a little more verbose so it is
+	less of a mystery when the child process is killed.
+
+Thu Sep  6 13:51:00 EDT 2001
+
+o	New grave-robber -I option for better control of icat/pcat.
+
+Mon May 21 10:11:19 EDT 2001
+
+o       findkey command-line error check was too conservative,
+	and disallowed threshold of 256 different byte values
+	(Ovanes Manucharyan).
+
+Mon May 14 13:11:54 EDT 2001
+
+o	Patch 06 broke lib/pass.cache.pl, which broke mactime.
+
+o	Patch 06 did not update the patchlevel file.
+
+Fri Mar 16 14:25:11 EST 2001
+
+o	Fixed rpm root directory when running on a corpse.
+	Marco Walter (SUN).
+
+o	Fixed file(1) output parsing problem with multiple :
+	characters.  Marco Walter (SUN)
+
+Thu Feb 22 11:16:40 EST 2001
+
+o	Patch by Brian Carrier (Purdue) so that fs_read_random()
+	properly maintains file offset information.
+
+Thu Feb  8 10:40:02 EST 2001
+
+o	grave-robber dies silently when no group file is found.
+	This bites when examining a partial machine corpse
+	(bin/grave-robber). Klaus-Peter Kossakowski.
+
+o	The "do first looks" code did not relocate to $TCT_HOME
+	(lib/tree.pl). Klaus-Peter Kossakowski.
+
+Tue Jan 23 18:44:36 EST 2001
+
+o       The grave-robber did not correctly handle multi-line df
+	output records (ps_spy.pl, suck_free_inodes.pl).
+
+o       The grave-robber mounted corpse inode scan looked only at
+	the corpse's "root" file system (suck_free_inodes.pl).
+
+Mon Jan 22 11:23:32 EST 2001
+
+o       grave-robber enabled the default -lPO flags when -c was
+	specified, causing the program to gripe and exit.
+	
+Tue Sep 26 10:55:24 EDT 2000
+
+o       Fixed a bug in fs_read_block() that caused icat etc. to
+	remember the wrong file seek position, so that icat etc.
+	would call lseek() too often. The other possibility, not
+	calling lseek() when it should be called, did not happen
+	due to an implementation artefact of the TCT utilities.
+	Reported by Brian Carrier, Purdue University.
+
+	Updated help-recovering-file document by Dan.
+
+Sat Aug 12 10:51:16 EDT 2000
+
+o       Added -V option to direct icat/ils/unrm for verbose output
+	to stdout.  The -v option now sends verbose logging to stderr.
+
+Tue Aug  8 11:46:19 PDT 2000
+
+o	created "help-recovering-file", added note to README.FIRST
+
+Sat Aug  5 11:34:26 PDT 2000
+
+o	mactime time range repaired, fixed docs, -l option slightly
+	fixed... perhaps deprecation in the future?
+
+Fri Aug  4 20:06:15 EDT 2000
+
+o	ils and ils2mac now include device names for more
+	readable mactime reports of dead inodes.
+
+o	mactime could not run with current working directory
+	different from $TCT_HOME.
+
+o	mactime -d could destroy an existing $DATA/body file.
+
+o	mactime -d turned on verbosity, instead of letting -v do that.
+
+o	mactime -s (suid) flag used an obsolete method of getting data.
+
+o	ils2mac broke because perl split() can't see the difference
+	between empty last fields and missing last fields.
+
+o	mactime mistakenly skipped files with all-zero time stamps.
+
+o	ils2mac now emits ls -l like info for mactime compatibility.
+
+Tue Aug  1 13:50:20 PDT 2000
+
+o	Prepend our directory list to @INC rather than clobbering it.
+
+Mon Jul 31 17:37:35 PDT 2000
+
+o	removed mention of sans.org from help-when-broken-into
+
+o	a few minor changes in README.FIRST; prettied up the start a bit
+
+Sun Jul 30 16:38:10 PDT 2000
+
+o	removed junk file from laz subdir
+
+o	edited/spell checked extras/README, man/man1/grave-robber.1, 
+	lazarus/{BUGS,TODO}
+
+Sun Jul 30 16:04:39 PDT 2000
+
+o	added /dev to look@first file
+
+o	spell checked (& changed) docs/*, README.FIRST, help-when-broken-into,
+	COPYRIGHT, bibliography, additional-resources
+
+o	put in w's changes to grave-robber.1
+
+o	minor changes to "rip-mail" & "rip-mail.README" in the
+	"lazarus/post-processing" dir
+
+Sun Jul 30 10:40:12 EDT 2000
+
+o	BSD/OS mkdir refuses pathnames ending in /.
+
+o	ps_spy.pl clobbered the initial date record in the lsof
+	and ps output files.
+
+o	ps_spy.pl signed the ps and lsof output files too early so
+	that the checksum did not match the inal content.
+
+Sat Jul 29 17:11:12 PDT 2000
+
+o	grave robber man page, comments fixed
+
+o	lazarus.readme slightly changed
+
+o	help-when-broken... doc finished
+
+o	changed some todo* notes
+
+Sat Jul 29 13:13:41 EDT 2000
+
+o	Made icat executable grabbing work again for non-proc systems.
+
+o	Sync the file system so that the scan for open unlinked
+	files doesn't copy the files that it just created (FreeBSD
+	4.0 needs this).
+
+o	Jay! Ported grave-robber to Perl 5.000 (disallows () after
+	sub foo declaration).  Perl 5.000 misses files needed by
+	mactime, but at least we can collect data for off-line
+	analysis.
+
+o	vault_cp.pl should not chdir() twice to install a symlink.
+
+Fri Jul 28 21:26:34 PDT 2000
+
+o	made the search for core/kernel files much better, fixed bug
+	in solaris.pl, sunos.pl, and bsd.pl WRT this.
+
+o	put back in $copy_threshold into grave-robber.cf, vault_cp.pl.
+	default, 0, means ignore limit; vault_cp only copies files now
+	(doublechecked)
+
+o	changed grave-robber.README
+
+o	put back in changes that were lost in README.FIRST
+
+o	made slight changes to the main README
+
+o	added the -O option (save files that are open but have been deleted)
+	to the -f (fast/quick) option
+
+Thu Jul 27 23:38:29 PDT 2000
+
+o	vault_cp.pl makes relative links in the data subsystem now
+
+o	relative paths are now used in MD5_all
+
+o	located and removed system("") (!) calls by chk_binaries, misc.pl,
+	they somehow avoided us this long... hopefully the last of the
+	system/exec calls
+
+o	fixed symlink bug in trust.pl
+
+Thu Jul 27 14:11:09 EDT 2000
+
+o	grave-robber -P used the wrong file name when signing files
+	copied from /proc.
+
+o	grave-robber -t used the wrong source file name when saving
+	.rhosts etc. files.
+
+o	grave-robber -P did not fall back from using /proc to using icat.
+
+o	grave-robber -P broke on systems without block devices.
+
+o	pcat memory map and data files now use the same file name syntax.
+
+Thu Jul 27 00:44:08 PDT 2000
+
+o	changed suck_free_inodes.pl to put all the ILS output into seperate
+	files
+
+o	added check to gr to ensure that none of the opts that required
+	a live system would try to go forward if the corpse opt (-c) was used
+
+o	fixed -F bug in gr... now -M & -F both imply -m
+
+o	fixed bug in trust.pl, now saves all user files it should
+
+o	fixed gr -d bug - now mkdirs, verifies full path
+
+Wed Jul 26 13:24:02 EDT 2000
+
+o	fixed reconfig so it uses -x (execute) instead of -f (exists)
+	otherwise it finds /etc/crontab instead of /usr/bin/crontab.
+
+o	added design-notes first version.
+
+o	added tolerance against new lsof -F output fields.
+
+o	added /usr/local/sbin to the reconfig search path so it finds
+	FreeBSD lsof.
+
+o	fixed time zone offset formatting error (date.pl).
+
+o	grave-robber -d directory would save everything in /.
+
+o	crontab sniffing with BSD was broken.
+
+o	grave-robber did not capture /etc/crontab when the crontab
+	command exists.
+
+Tue Jul 25 22:01:13 PDT 2000
+
+o	added various additional flags to grave-robber
+
+o	made crontab sniffing work with BSD
+
+o	changed timeouts to longer (10/100/1000)
+
+o	killed off $md5 settings in coroner.cf
+
+Tue Jul 25 19:25:05 PDT 2000
+
+o	changes in grave-robber internal structure, added -M flag (md5)
+
+o	wietse's change put in to logger.pl, slight change to bsd.pl
+	& grave-robber to use new log function.
+
+o	Minor fix in readme.first
+
+o	reorganized grave-robber manpage
+
+o	added -m mapname option when calling pcat
+
+Mon Jul 24 12:42:58 PDT 2000
+
+o	fixed grave-robber CL options
+
+o	added args to lastcomm in grave-robber.cf file, changed linux, bsd,
+	sunos, solaris files to use it
+
+o	changed dead inode info grabber to not muck with ils output
+
+o	put in timeouts for specific commands in coroner.cf
+
+
+Mon Jul 24 14:36:55 EDT 2000
+
+o	More lastcomm trouble - the FreeBSD code does not print the
+	oldest record, and the time calibration was wrong for
+	Solaris <= 2.5 and SunOS 4.
+
+Sun Jul 23 22:13:30 EDT 2000
+
+o	While porting lastcomm to Linux 2.2.* kernels, fixed some
+	problems with forgotten decompressions for Solaris/SunOS.
+
+Sun Jul 23 09:41:44 PDT 2000
+
+o	added help-when-broken-into file
+
+o	changed README.FIRST to mention above
+
+o	bug fixed in ostype.pl to print out supported os when bad one is given
+
+o	killed off pstat in solaris.pl
+
+Sat Jul 22 19:59:51 EDT 2000
+
+o	zero-effort port to FreeBSD 4.0 and BSD/OS 4.1 (except
+	for porting pcat to BSD/OS).
+
+o	fixed the top-level Makefile so that "make tidy" behaves
+	when run on an already clean tree.
+
+o	conf/paths.pl: turned on lastcomm again.
+
+o	lib/logger.pl: changed test file name again.
+
+o	rm-ed unused files: extras/*/error.*
+
+Sat Jul 22 11:09:33 PDT 2000
+
+o	fixed bugs in sunos.pl, linux.pl, solaris.pl, & bsd.pl
+
+o	changed reconfig, took out paths.sh, added comments.
+
+o	changed INSTALL & quick-start to reflect make/reconfig changes
+
+Fri Jul 21 19:47:10 EDT 2000
+ 
+o	Ported the changes back to the archaic SunOS 4 platform
+	(mostly, missing getopt stuff).
+ 
+o	Updated lastcomm source because Linux has changed again.
+ 
+o	Added timeout support to command.pl. Set the default timeout
+	info in conf/coroner.cf. Imported SATAN's timeout utility.
+ 
+Thu Jul 20 11:30:33 EDT 2000
+ 
+o	ostype.pl is now table driven, so that an operating system
+	needs to be added only once.
+ 
+Wed Jul 19 10:30:23 EDT 2000
+
+o	fixed grave-robber so that reconfig/strip_tct_home work.
+
+o	ils2mac had hard-coded dependencies on ils output format
+	and was terminally broken.
+
+o	changed ils output labels to match mactime so that ils2mac
+	no longer has hard-coded format dependencies.
+
+o	added "perl reconfig" magic to Makefile.
+
+o	little man page updates to icat, ils, pcat, unrm.
+
+o	"make depend" and "make manpages" should not remove unrelated
+	files.
+
+o	hostname.pl now requires whatever modules it needs.
+
+Wed Jul 19 01:48:32 PDT 2000
+
+o	added "pwd" command to reconfig/paths.pl, changed realpath 
+	to use $PWD
+
+o	changed README to mention extras dir
+
+Tue Jul 18 20:40:53 EDT 2000
+
+o	Dropped in the entropy and findkey tools below "extras", and
+	updated the top-level Makefile accordingly.
+
+o	Updated reconfig and strip_tct_home so they fix the "extras"
+	utilities (or they would be useless).
+
+Tue Jul 17 17:08:10 PDT 2000
+
+o	Added more resources to bibliography
+
+o	created "extras" directory; tossed bdf, ils2mac & realpath in there.
+	Need to put in wietse's entropy/key finding stuff.  README created in
+	the subdir that says what everything is.
+
+o	Changed manifest to cover the changes
+
+o	added option to grave-robber; can set TCT_HOME as an environ
+	variable, if you really want to do this... changed coroner.cf,
+	grave-robber.cf, man page as well
+
+o	many changes to lazarus and docs; primarily adding support for
+	the recognition/distinction of small, consecutive binary files
+
+o	fixed man page and code comments for grave-robber, added -l option,
+	now dies with exit code if can't open STDERR/STDOUT
+
+o	nuked warning of !dir, added $PATH to stuff we look at first in
+	tree.pl
+
+Fri Jul 14 20:25:54 EDT 2000
+
+o	src/file/Makefile wired the wrong magic pathname into the program.
+
+o	lib/command.pl now writes to $logging_handle, and shuts up when
+	$logging_handle is undefined.
+
+o	trivial changes to makedefs to account for the ils2mac command.
+
+o	Undo change to logger.pl that prevented stand-alone testing.
+
+o	Added missing $ to the datez.pl time offset calculation code.
+
+o	mactime should set the $running_under_graverobber in order
+	to turn off library scaffolding.
+
+Thu Jul 13 12:34:04 PDT 2000
+
+o	moved sniffer regexp recognition to bottom of "if-else" set
+	in lazarus to slightly improve perf.
+
+Mon Jul 10 19:52:13 PDT 2000
+
+o	Note in docs - mactime uses secs-till-1970, which breaks if date
+	is < 1970
+
+o	changed grave-robber, mactime to use body_init.pl, which makes
+	body DB output into real time machine format, also fixed
+	suck_free_inodes.pl to do better TM output
+
+o	made ils2mac into a real tool
+
+Mon Jul  3 21:22:59 PDT 2000
+
+o	fixed bug in save_the_files
+
+o	grave-robber -m doesn't do md5's anymore
+
+Fri Jun 30 10:09:44 PDT 2000
+
+o	tracked down some problems with the vault stuff (copying config
+	files) - wietse's changes in command.pl again broke some things
+	(newline on the end of output)... I think I have the last of 
+	those fixed.
+
+Sat Jun 24 17:26:45 PDT 2000
+
+o	doc changes... README.FIRST, quick-start, INSTALL, README,
+	grave-robber.README, etc.
+
+o	changed crunch.pl & mactime to allow for the body to be printed
+	to stdout instead of a file with the -d flag, also mactime.manfile.
+
+Sat Jun 17 09:44:44 PDT 2000
+
+o	fixed man pages and documentation for mactime, grave-robber
+
+Fri Apr  7 19:04:38 PDT 2000
+
+o	many changes to conf files, grave-robber, to make everything
+	independent and execute no commands before their time
+
+o	trust.pl, changed a $DATA ==> $TRUST
+
+Wed Mar 29 18:34:14 EST 2000
+
+o	revamped user interfaces for ils icat unrm pcat.
+
+o	"make tidy" did not strip TCT_HOME from bin/*.
+
+o	Nuked backtics from hostname module. All shell escapes should be logged.
+
+o	Nuked the command_to_string("$DATE") from date.pl, which is called
+	by coroner.cf.  Instead, use the new localtimez() routine to avoid 
+	running an external command.
+
+o	Tried to get the low-level logging to work but coroner.cf file calls
+	functions that need logging, so we have a circular dependency.
+
+o	Gave up. The coroner.cf file must be fixed to not call any functions.
+
+Tue Mar 28 17:36 EST 2000
+
+o	change minimum perl from 5.0003 to 5.
+
+o	fixed realpath, made a cwd function
+
+o	removed ()'s from subs in realpath, rawdev, ps_spy, and command.pl
+
+o	fixed solaris.pl - pkgadd needed to look in $CORPSE if looking at
+	a dead system
+
+o	more README fixes, additions, etc.
+
+o	added check in coroner.cf to die unless make has been run
+
+
+Sun Mar 26 17:05:45 EST 2000
+
+o	put back in grave-robber into reconfig
+
+o	changed determine_os to print out $OS... (solaris box)
+
+o	changed grave robber, cleaned up some $CORPSE problems...
+
+o	replaced old Manip.pm with newer, smaller version from the net
+
+o	the big reorg... made linux, solaris, etc. modules, system_stub, etc.
+
+o	added nfsstat, top, etc. to reconfig
+
+o	moved lazarus to normal bin dir (actually linked it), laz.conf to
+	config dir, changed makefile
+
+o	added flags to lazarus to make it runnable from anywhere
+
+o	changed reconfig to automatically insert TCT_HOME into lots of
+	files to make the thing more position independent
+
+o	fixed linux bug in top output (added -b opt)
+
+o	changed INSTALL doc slightly
+
+Tue Dec  7 02:50:47 PST 1999
+
+o	added ksyms to hosts.pl
+
+o	added pstat -T in hostinfo (not if $dead), nfsstat
+
+o	made ipcs try to run on everything (in hostinfo)
+
+o	Added [-c corpse-dir] to grave-robber.  $CORPSE var gets 
+	added all over the place, changes made, etc.
+
+o	moved $ETC/magic check into coroner.cf from lazarus.cf
+
+o	added "top" to hostinfo.pl.  Thought about putting it in ps_spy.pl,
+	but decided that I'm simply dumping the output to a file for
+	the results, not processing, so hostinfo.pl is fine for now.
+	Added ftp location to additional resources as well.
+
+o	fixed the -d flag in grave-robber.  Had to shift code around in
+	grave-robber, change realpath.pl (it set verbose), coroner.cf,
+	and misc.pl.  A mess...
+
+o	mactime.1 & mactime.pl fixed; date/month ==> month/date
+
+o	grave-robber - incorrect error message fixed (was -m & -d instead of
+	-m & -f.
+
+o	[should -m run the file gathering stuff?]
+
+o	mv mac.1 to mactime.1
+
+o	clarified INSTALL instructions
+
+o	Changed trust.pl & coroner.cf - @user_trust_files now takes
+	wildcards, so we can do $USER/.*history*, etc.
+
+o	made .ssh/ => .ssh* coroner.cf, to get all versions of ssh files
+
+o	Added *history* to coroner.cf's $conf_pattern (to grab in
+	filewalk).
+
+o	/tmp and /var/tmp added as files/dirs to grab in save_these_files
+
+-----------------------------
+
+Mon Sep 27 22:13:55 PDT 1999
+
+o	emergency hack to get lazarus to work (something always breaks...).
+	Changed lazarus.cf and coroner.cf.
+
+o	make command not so verbose... if ($verbose) rather than defined.
+
+-----------------------------
+
+Mon Sep 27 20:51:41 EDT 1999
+
+o	Don't pass zero-length arguments to crontabs that do not
+	require a -u option. Some crontabs barf on that.
+
+-----------------------------
+
+Mon Sep 27 19:23:16 EDT 1999
+
+o	Create the user_vault before trying to fill it.
+
+o	Somehow the code for procfs detection didn't make it into
+	coroner.cf.
+
+o	Procfs detection code in tree.pl used the wrong variable.
+
+o	Before using procfs, verify that it is actually mounted.
+
+-----------------------------
+
+Mon Sep 27 15:07:09 PDT 1999
+
+o	added pretty date to cp/proc output files in proc.pl.
+
+-----------------------------
+
+Mon Sep 27 17:28:42 EDT 1999
+
+o	Fix df being called with void argument.
+
+o	Do not require lib/major_minor.pl, eval bin/major_minor instead.
+
+o	Make sure eval is followed by something or some Perls optimize
+	it away.
+
+o	Use raw disk device when grave-robbing with ils/icat, some
+	systems return EBUSY when opening the block device.
+
+-----------------------------
+
+Mon Sep 27 11:43:00 PDT 1999
+
+o	ps_spy - all icat'ing now appends date to filename
+
+o	added major_minor in paths, changed grave-robber to call it,
+	added sub in maj_min_walk.pl.
+
+o	maj_min_walk now follows symlinks, also keeps track of types
+	of /dev's
+
+-----------------------------
+
+Mon Sep 27 12:02:01 EDT 1999
+
+o	PERL local variables arent. What a #$#$@^ language (says Wietse).
+	This screwed up the pid value when pcatting/icatting a process.
+
+-----------------------------
+
+Mon Sep 27 10:57:22 EDT 1999
+
+o	Do not record bogus major/minor device numbers for regular files.
+	The can collide with real devices.
+
+o	Sign pcat and icat output.
+
+o	Don't prepend the date to icat output.
+
+o	Added lsmod+modinfo+modstat to reconfig+paths.pl+lib/hostinfo.pl.
+
+o	Added netstat -na.
+
+o	More .ssh files to be captured.
+
+o	Create data/host/trust (coroner.cf).
+
+-----------------------------
+
+Sun Sep 26 18:12:20 PDT 1999
+
+o	trust.pl & coroner.cf updated, now trust stuff goes into trust subdir
+
+o	ps_spy.pl - bug fixed WRT making $DELETED_FILES dir
+
+o	new module, lib/proc.pl, handles copying of proc stuff, coroner.cf
+	changed to say where /proc files get copied to, grave-robber updated
+	as well.
+
+-----------------------------
+
+Sun Sep 26 21:09:52 EDT 1999
+
+o	fixed reconfig again so it will handle whitespace around "=".
+
+-----------------------------
+
+Sun Sep 26 13:05:09 PDT 1999
+
+o	(Note - adding scaffolding as I go along, testing).
+
+o	trust.pl - new functionality added, grabs user files found in 
+	coroner.cf (including some ssh, pgp, etc.)
+
+o	-f flag added to grave-robber, changed man & docs
+
+o	suck_proc_icat added to grave-robber, also moved around the
+	dev walker so that it's before this (required to get maj/min).
+
+o	ps_spy.pl now saves icat'd files
+
+o	icat'd files now go to two places - $DELETED_FILES & $ICAT_OUT
+
+o	maj_min_walk changed to keep global DB of maj/min #s, put in
+	scaffolding
+
+-----------------------------
+
+Sat Sep 25 21:48:34 EDT 1999
+
+o	Added "last", removed "lastcomm" in list of commands in reconfig.
+
+o	Added "typescript" to list of files to be cleaned up.
+
+-----------------------------
+
+Sat Sep 25 14:57:30 PDT 1999
+
+o	more changes to BUGS
+
+o	changed -p option to mean *run* the pcat sucker, reverse of
+	what it was.  Man page & quick-start fixed.
+
+o	changed quick-start
+
+o	gave coroner.cf, tree.pl, and maj_min_walk.pl an option
+	to not follow/process symlinks.
+
+-----------------------------
+
+Sat Sep 25 14:57:30 PDT 1999
+
+o	solaris - is the strings(1) command just broken, or is it me?
+	od -s doesn't exist, either... blech.
+
+o	coroner.cf - command_to_string fix...
+
+o	$TCT-HOME/test.pl - nuked
+
+o	added/edited text in docs/grave-robber.README & BUGS
+
+o	added $AT to paths.pl
+
+-----------------------------
+
+Sat Sep 25 17:41:31 EDT 1999
+
+o	grave-robber redirects STDIN to /dev/null to make child processes
+	more robust. The format command needs this so don't take it away.
+
+o	Added a command_to_string() function for easier `command` emulation.
+
+o	Added execute_command() function to make system() emulation easier.
+
+o	Fixed a couple command strings that weren't broken at whitespace.
+
+-----------------------------
+
+Sat Sep 25 10:12:59 PDT 1999
+
+o	hostinfo.pl - added "format < /dev/null"
+
+o	coroner.cf and various lib files - changed to use command_to_list()
+
+-----------------------------
+
+Sat Sep 25 10:12:59 PDT 1999
+
+o	added -v flag to grave-robber example in quick-start
+
+o	fixed small bug (netstat flag) in netinfo.pl
+
+o	added some text to the BUGS file
+
+-----------------------------
+
+Sat Sep 25 01:14:51 PDT 1999
+
+o	installed your md5.c & command.pl
+
+o	changed all (that I could find) systems, open(..., "|"), etc.
+	to safe execs.
+
+o	added domainname to paths.pl
+
+o	added require in coroner.cf
+
+-----------------------------
+
+Fri Sep 24 11:22:53 PDT 1999
+
+o	lib/crunch.pl now uses quotemeta() to protect filenames.
+	Seems to kill the shell cruft.
+
+o	added -p option to grave robber (don't suck in pcat stuff);
+	also changed corresponding man page.  Changed quick-start
+	& README also to discuss this.
+
+o	relative symlink in data dir created in coroner.cf, not absolute.
+
+o	fixed bug - no debug output - in grave-robber & coroner.cf,
+	changed man page to grave-robber as well.
+
+o	changed reconfig - nuked 'bin/ostype.pl'
+
+o	removed the "disks.pl" & results.pl files from lib
+
+o	added verbose option (-v) to grave-robber, changed many files
+	in lib to add a bit of chattiness.
+
+-----------------------------
+
+Fri Sep 24 14:43:52 EDT 1999
+  
+o	docs/grave-robber.README: Changed "files that were running
+	but deleted when grave-robber ran" to "deleted files that
+	were still open or running when the grave robber ran".
+
+-----------------------------
+
+Fri Sep 24 09:42:28 PDT 1999
+
+o	Moved changes to reverse chron order, so that you can instantly
+	see what happened last.
+
+o	lib/ps_spy.pl - changed two "&get_date"'s to &get_date()'s.
+
+o	fixed two bugs in lib/date.pl
+
+o	moved ostype.pl to lib (somehow turned up missing), changed 
+	grave-robber & trust.pl to reflect this.
+
+o	Added some stuff to docs/README (including pgp stuff), added new 
+	section to docs/grave-robber.README, further explaining the data 
+	directory.
+
+o	fixed bug in misc.pl; final MD5 wasn't working.
+
+o	INSTALL changed - now use `pwd` instead of dir
+
+-----------------------------
+
+Fri Sep 24 10:28:40 EDT 1999
+
+o	Makefile: added a command "chmod 700 .". It's a system
+	in production that needs to be protected.  Shipping mode
+	0700 source code stinks.
+
+o	Polished lastcomm.1, icat.1, unrm.1.
+
+o	Ran "make manpages" because file time stamps were messed up.
+
+o	MANIFEST: Fixed command descriptions of icat, md5, pcat. 
+
+o	README.FIRST: "IBM free source" -> "IBM open source".
+
+o	quick-start: "remove all the output" -> "remove all your output".
+
+o	lazarus.1: A "." represents <insert: unrecognized> binary data.
+
+o	docs/README: "Run it on the root file system if space
+	permits" -> "Point it at the root directory if space permits.
+	"keep this safely off-line" -> keep the MD5 output off-line".
+
+o	lazarus.README: non-portable tr(1) command: "tr '\0' ''"
+	should be "tr -d '\0'".
+
+-----------------------------
+
+Fri Sep 24 00:06:48 PDT 1999
+
+o	TODO list modified with various todo's, TODO.before-release deleted.
+
+o	LICENSE-IBM mv'd to LICENSE, docs changed accordingly.
+
+o	unpacked lastcomm.tar, your changes installed
+
+o	Makefile - deleted the "rm -rf bin" in "make tidy".  Added
+	"rm -rf data".  Also chmod 755 to dirs changed to 700.
+
+o	INSTALL & quick-start - mention lsof now as strongly suggested.
+
+o	conf/paths.pl - added find
+
+o	grave-robber - moved &close_config_vault() to the end, added
+	comment; now it does an md5 of all data.
+
+o	lib/misc.pl - close_config_vault() now does an md5 on all data
+	(after grave-robber run).  docs/README & documents this and 
+	advises you to protect it.
+
+o	docs/README & quick-start now advise you to save your resulting 
+	data offline.
+
+o	In INSTALL clarified a sentence talking about redhat/linux and
+	what we tested on (only redhat).
+
+o	Changed coroner.cf to the full, releasable pattern (to suck up
+	files) and to do md5's on all files we lstat.  Also 
+	save_these_files & look@first changed to full blown version.
+
+o	&suck_proc uncommented in grave-robber; this is the thing that
+	grabs all processes with pcat.  I currently feel that it
+	*probably* won't cause problems but might... so I vote to turn 
+	it on.  We can easily turn it off for release, of course, just
+	my current thought.
+
+o	changed reconfig to read "Hmm" instead of "Yipes" as to less
+	alarm people when a non-essential binary is not found ;-)
+

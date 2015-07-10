@@ -1,0 +1,13 @@
+
+Various miscellaneous notes by OS
+----------------------------------
+
+Sun -
+
+	Sun has changed their way of mucking around with dead systems;
+	in the old days you would use ps, netstat, and other commands
+	with the core/system files and you could get good results.
+	The crash(1M) command took over some of these duties around
+	solaris 2.5/2.5.1.  Solaris 8 introduced mdb, an extensible adb 
+	compatible debugger.
+

@@ -1,0 +1,49 @@
+#
+# Configuration file for coroner's toolkit
+#
+
+$TCT_HOME = "";
+
+$ETC    = "$TCT_HOME/etc"  unless $ETC;
+
+@INC = ("$TCT_HOME/lib", "$TCT_HOME/conf", "$TCT_HOME", @INC);
+
+#
+#  Where all the full pathnames to the various shell binaries used live
+#
+require "paths.pl";
+
+#
+#  Turns on lots of debugging verbage
+#
+# $debug = 1;
+
+#
+# All sensitive operations are logged with a time stamp.
+#
+$logfile = "coroner.log";
+
+#
+#  What colors to use for MACtime HTML stuff
+#
+
+$su_color   = "ff0000";		# red
+$user_color = "0066ff";		# blue
+$file_color = "ff6600";		# orange
+
+#
+# Default time limits. Needed by anything that executes a command.
+#
+$short_timeout = 10;
+$med_timeout = 100;
+$long_timeout = 1000;
+
+#
+# this associative array makes certain commands run longer (default is
+# short)
+#
+$timeouts{$ILS} = $long_timeout;
+$timeouts{$LAST} = $long_timeout;
+$timeouts{$LASTCOMM} = $long_timeout;
+
+1;

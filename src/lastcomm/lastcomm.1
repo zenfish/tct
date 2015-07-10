@@ -1,0 +1,170 @@
+.\" Copyright (c) 1980, 1990, 1993
+.\"	The Regents of the University of California.  All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"	This product includes software developed by the University of
+.\"	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"	From: @(#)lastcomm.1	8.1 (Berkeley) 6/6/93
+.\"	$Id: lastcomm.1,v 1.3 1996/09/18 16:48:54 wollman Exp $
+.\"
+.Dd September 18, 1996
+.TH LASTCOMM 1
+.Os BSD 3
+.SH NAME
+lastcomm
+\- show last commands executed in reverse order
+.SH SYNOPSIS
+.B lastcomm
+[\fB-EScestu\fR]
+[\fB-f\fI file\fR]
+[\fIcommand ...\fR]
+[\fIuser ...\fR]
+[\fIterminal ...\fR]
+.SH DESCRIPTION
+.B Lastcomm
+gives information on previously executed commands.
+With no arguments,
+.B lastcomm
+prints information about all the commands recorded
+during the current accounting file's lifetime.
+.PP
+The following options are available:
+.IP \fB-E\fR
+Print the time the process exited.
+.IP \fB-S\fR
+Print the time the process started.
+.IP \fB-c\fR
+Print the amount of cpu time used by the process.
+.IP \fB-e\fR
+Print the amount of elapsed time used by the process.
+.IP \fB-s\fR
+Print the amount of system time used by the process.
+.IP \fB-t\fR
+Produce output in \fBtime machine\fR format: a portable, self-documenting
+file format (see tm-format(5)) that contains all accounting record fields.
+.RS
+.IP \fBcommand\fR
+The command name.
+.IP \fBflags\fR
+Flags accumulated by the accounting system.
+.IP \fBuid\fR
+The numerical user ID.
+.IP \fBgid\fR
+The numerical group ID.
+.IP \fBtty\fR
+The controlling terminal, given as \fIminor, major\fR device numbers
+or given as ``__'' for processes without controlling terminal.
+.IP \fBuser_time\fR
+User-mode CPU time in seconds.
+.IP \fBsystem_time\fR
+Kernel-mode CPU time in seconds.
+.IP \fBelapsed_time\fR
+Elapsed time in seconds.
+.IP \fBmemory_usage\fR
+Amount of memory used (FreeBSD, BSD/OS, SunOS 4 and Solaris 2).
+.IP \fBcharacter_io\fR
+Character device I/O (SunOS 4 and Solaris 2).
+.IP \fBblock_io\fR
+Block device I/O (FreeBSD, BSD/OS, SunOS 4 and Solaris 2).
+.IP \fBmajor_page_faults\fR
+Page fault statistics (Linux).
+.IP \fBminor_page_faults\fR
+Page fault statistics (Linux).
+.IP \fBexit_status\fR
+Process exit status (Linux).
+.RE
+.IP \fB-u\fR
+Print the amount of user time used by the process.
+.IP "\fB-f\fR \fIfile\fR"
+Read from
+.I file
+rather than the default \fB/var/account/acct\fR.
+.PP
+If no options are specified, \fB-cS\fR is assumed.
+If \fBlastcomm\fR is invoked with arguments, only accounting entries with a
+matching \fIcommand\fR name, \fIuser\fR name, or \fIterminal\fR name
+are printed.
+For example:
+.PP
+.DS
+lastcomm a.out root ttyd0
+.DE
+.PP
+would produce a listing of all the
+executions of commands named
+\fIa.out\fR
+by user
+\fIroot\fR
+on the terminal
+\fIttyd0\fR.
+.PP
+For each process entry, the following are printed.
+.IP \(bu
+The name of the user who ran the process.
+.IP \(bu
+Flags, as accumulated by the accounting facilities in the system.
+.IP \(bu
+The command name under which the process was called.
+.IP \(bu
+The amount of 
+CPU
+(\fB-c\fR),
+wall
+(\fB-e\fR),
+system
+(\fB-s\fR),
+or user
+(\fB-u\fR)
+time used by the process (in seconds).
+.IP \(bu
+The time the process started
+(\fB-S\fR)
+or exited
+(\fB-E\fR).
+.PP
+The flags are encoded as follows: ``S'' indicates the command was
+executed by the super-user, ``F'' indicates the command ran after
+a fork, but without a following
+exec ,
+.\" ``C'' indicates the command was run in PDP-11 compatibility mode
+.\" (VAX only),
+``D'' indicates the command terminated with the generation of a
+.Pa core
+file, and ``X'' indicates the command was terminated with a signal.
+.SH FILES
+/var/account/acct, Default accounting file.
+.SH SEE ALSO
+last(1),
+sigvec(2),
+acct(5),
+core(5)
+tm-format(5)
+.SH HISTORY
+The
+.B lastcomm
+command appeared in 3.0BSD.

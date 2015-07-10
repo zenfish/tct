@@ -1,0 +1,24 @@
+
+It's not clear if this is a bug or a feature; if you run lazarus on
+a raw file system or file with the HTML option (-h), you might get an 
+unexpected set of output files.
+
+For instance:
+
+	# lazarus -h /dev/rsd4a
+
+Will create block & www directories within the same current working directory
+of lazarus, but the 3 frame files created to aid viewing will be created as:
+
+	/dev/rsd4a.frame.html
+	/dev/rsd4a.menu.html
+	/dev/rsd4a.html
+
+This is probably not what you want, however, it's not clear if the files
+should be in the current directory or not, because if you use the
+-b and -w options you might expect them to follow one of those as well -
+perhaps it should follow the -w option location.
+
+Anyway, for now you can simply create a symlink in your current directory
+and it'll work as expected.  I'll fix this soon.
+

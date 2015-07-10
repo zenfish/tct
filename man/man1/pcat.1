@@ -1,0 +1,88 @@
+.TH PCAT 1 
+.ad
+.fi
+.SH NAME
+pcat
+\-
+copy process memory
+.SH SYNOPSIS
+.na
+.nf
+\fBpcat\fR [\fB-hHv\fR] [\fB-m\fI mapfile\fR] \fIprocess_id\fR
+.SH DESCRIPTION
+.ad
+.fi
+\fBpcat\fR hooks onto the process specified with \fIprocess_id\fR
+and copies the contents of its memory to standard output. By default,
+\fBpcat\fR skips over holes in the process address space.
+Consequently, absolute location information is lost.
+
+Options:
+.IP "\fB-h\fR (default)"
+Skip over holes in the process address space, so that absolute
+location information is lost.
+.IP \fB-H\fR
+Preserve holes in the process address space, so that absolute
+location information is preserved.  This option writes holes to
+the output file, and requires that stdout is redirected to file.
+This option does not work on some Solaris versions.
+.IP "\fB-m\fR \fImapfile\fR"
+Print the process memory map to \fImapfile\fR, one entry per line.
+Specify \fB-m-\fR to write to the standard error stream.
+Each map entry consists of a region start address and the first
+address beyond that region. Addresses are separated by space,
+and are printed as hexadecimal numbers (0xhhhh).
+.IP \fB-v\fR
+Enable verbose mode, for debugging purposes.
+.SH BUGS
+.ad
+.fi
+On systems with a usable \fB/proc\fR file system, \fBpcat\fR
+does not stop the target process before accessing its memory.
+This can result in a loss of accuracy.
+
+\fBpcat\fR uses ptrace(2) when the system lacks a usable
+\fB/proc\fR file system. This can be very, very, slow.
+
+The use of ptrace(2) causes the target process to be stopped
+while its memory being is copied. This can be undesirable.
+
+On some systems, the ptrace(2) detach operation resumes a process
+that was stopped prior to the ptrace(2) attach operation.
+\fBpcat\fR attempts to compensate by sending SIGSTOP signals when
+it detaches from the process.
+
+On some systems, the ptrace(2) detach operation leaves a process
+stopped that was not stopped prior to the ptrace(2) attach operation.
+\fBpcat\fR attempts to compensate by sending a SIGCONT signal when
+it detaches from the process.
+
+On most non-\fB/proc\fR systems, \fBpcat\fR accesses kernel data
+structures and therefore 1) needs super-user privilege and 2) must
+be compiled specifically for the machine that it runs on.
+
+\fBpcat\fR will not copy its own memory.
+
+\fBpcat\fR will not copy system processes (i.e. processes
+that live entirely inside the kernel).
+.SH HISTORY
+.na
+.nf
+.fi
+.ad
+This \fBpcat\fR command was written for the coroner's toolkit.
+However, a command with the same name exists on some versions
+of System V UNIX. That command, a file decompression utility,
+should not be confused with the command described in this
+manual page.
+.SH LICENSE
+.na
+.nf
+This software is distributed under the IBM Public License.
+.SH AUTHOR(S)
+.na
+.nf
+Wietse Venema
+IBM T.J. Watson Research
+P.O. Box 704
+Yorktown Heights, NY 10598, USA
