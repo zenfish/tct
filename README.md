@@ -7,6 +7,10 @@ I might claim that it was the first foray into the more serious
 field of computer forensics, which until that time had been a bit
 mired in dd'ing disks and that sort of thing.
 
+Looking at the bibliography that we shipped with it... there were
+zero books on Forensic Computing even written, just scraps and 
+pieces from other disciplines... that sure changed fast ;)
+
 I guess my main things in here were Lazarus (invented data carving
 and gave the first ray of hope to recovering lost data on UNIX/Linux
 style systems; basically wrote it over a weekend with a bit of
